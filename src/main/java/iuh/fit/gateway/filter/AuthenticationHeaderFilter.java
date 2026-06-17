@@ -1,75 +1,140 @@
 package iuh.fit.gateway.filter;
 
+import iuh.fit.gateway.client.UserClient;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cloud.gateway.filter.GatewayFilter;
-import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
-import org.springframework.http.HttpCookie;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
-import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
-@Slf4j
 @Component
-public class AuthenticationHeaderFilter extends AbstractGatewayFilterFactory<Object> {
-    private final String gatewaySecret;
-    private final ReactiveJwtDecoder jwtDecoder;
+@RequiredArgsConstructor
+@Slf4j
+public class AuthenticationHeaderFilter implements GlobalFilter {
 
-    public AuthenticationHeaderFilter(
-            ReactiveJwtDecoder jwtDecoder,
-            @Value("${gateway.internal-secret}") String gatewaySecret
+    @Value("${gateway.internal-secret}")
+    private String gatewaySecret;
+
+    private final ObjectProvider<UserClient> userClient;
+
+    private record UserAccess(
+            String role,
+            String authorities
     ) {
-        super(Object.class);
-        this.jwtDecoder = jwtDecoder;
-        this.gatewaySecret = gatewaySecret;
     }
 
     @Override
-    public GatewayFilter apply(Object config) {
-        return (exchange, chain) -> {
-            if (exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {
-                return chain.filter(exchange);
-            }
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        if (exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {
+            return chain.filter(exchange);
+        }
 
-            ServerHttpRequest.Builder baseBuilder = exchange.getRequest().mutate()
-                    .header("X-Gateway-Secret", gatewaySecret);
+        return exchange.getPrincipal()
+                .filter(principal -> principal instanceof JwtAuthenticationToken)
+                .cast(JwtAuthenticationToken.class)
+                .flatMap(jwtAuth -> {
+                    String userId = jwtAuth.getToken().getSubject();
+                    String email = jwtAuth.getToken().getClaimAsString("email");
+                    String username = jwtAuth.getToken().getClaimAsString("username");
+                    String jwtRole = jwtAuth.getToken().getClaimAsString("role");
 
-            String token = null;
-            HttpCookie cookie = exchange.getRequest().getCookies().getFirst("accessToken");
-            if (cookie != null) {
-                token = cookie.getValue();
-            }
+                    return fetchUserAccess(userId, jwtRole)
+                            .flatMap(access -> {
+                                if (!isAllowed(exchange, access.role())) {
+                                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+                                    return exchange.getResponse().setComplete();
+                                }
 
-            if (token == null) {
-                ServerHttpRequest mutatedRequest = baseBuilder.build();
-                log.info("X-Gateway-Secret");
-                return chain.filter(exchange.mutate().request(mutatedRequest).build());
-            }
+                                ServerHttpRequest request = exchange.getRequest()
+                                        .mutate()
+                                        .header("X-Gateway-Secret", gatewaySecret)
+                                        .header("X-User-Id", userId)
+                                        .header("X-User-Username", username == null ? "" : username)
+                                        .header("X-User-Email", email == null ? "" : email)
+                                        .header("X-User-Roles", access.role())
+                                        .header("X-User-Authorities", access.authorities())
+                                        .build();
 
-            return jwtDecoder.decode(token)
-                    .flatMap(jwt -> {
-                        String userId = jwt.getSubject();
-                        String username = jwt.getClaimAsString("username");
-                        String email = jwt.getClaimAsString("email");
-                        String role = jwt.getClaimAsString("role");
+                                return chain.filter(
+                                        exchange.mutate()
+                                                .request(request)
+                                                .build()
+                                );
+                            });
+                })
+                .switchIfEmpty(
+                        chain.filter(
+                                exchange.mutate()
+                                        .request(
+                                                exchange.getRequest()
+                                                        .mutate()
+                                                        .header("X-Gateway-Secret", gatewaySecret)
+                                                        .build()
+                                        )
+                                        .build()
+                        )
+                );
+    }
 
-                        ServerHttpRequest.Builder withClaims = baseBuilder;
-                        if (userId != null && role != null) {
-                            withClaims = withClaims
-                                    .header("X-User-Id", userId)
-                                    .header("X-User-Username", username != null ? username : "")
-                                    .header("X-User-Email", email != null ? email : "")
-                                    .header("X-User-Roles", role);
+    private Mono<UserAccess> fetchUserAccess(String userId, String fallBackRole) {
+        return Mono.fromCallable(() -> {
+                    UserClient client = userClient.getIfAvailable();
+                    return client != null
+                            ? client.getUserPermissions(userId)
+                            : null;
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .map(response -> {
+                    if (response != null && response.getData() != null) {
+                        String role = normalizeRole(response.getData().getRole());
+                        if(role.isBlank())  {
+                            role = fallBackRole;
                         }
+                        String authorities =
+                                response.getData().getPermissions() == null
+                                        ? ""
+                                        : String.join(",", response.getData().getPermissions());
 
-                        ServerHttpRequest mutatedRequest = withClaims.build();
-                        return chain.filter(exchange.mutate().request(mutatedRequest).build());
-                    })
-                    .onErrorResume(e -> {
-                        ServerHttpRequest mutatedRequest = baseBuilder.build();
-                        return chain.filter(exchange.mutate().request(mutatedRequest).build());
-                    });
-        };
+                        return new UserAccess(role, authorities);
+                    }
+
+                    return new UserAccess(fallBackRole, "");
+                })
+                .defaultIfEmpty(new UserAccess(fallBackRole, ""))
+                .onErrorResume(ex -> {
+                    log.warn(
+                            "Cannot fetch permission of user {} : {}",
+                            userId,
+                            ex.getMessage()
+                    );
+                    return Mono.just(new UserAccess(fallBackRole, ""));
+                });
+    }
+
+    private String normalizeRole(String role) {
+        if (role == null) return "";
+        return role.replace("ROLE_", "").toUpperCase();
+    }
+
+    private boolean isAllowed(ServerWebExchange exchange, String role) {
+        String path = exchange.getRequest()
+                        .getPath()
+                        .pathWithinApplication()
+                        .value();
+
+        if (path.matches("^/[^/]+-service/admin(/.*)?$")) {
+            return "ADMIN".equals(role);
+        }
+
+        return true;
     }
 }

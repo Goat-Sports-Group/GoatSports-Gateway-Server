@@ -36,11 +36,6 @@ public class GatewaySecurityConfig {
     @Value("${app.jwt.secret}")
     private String jwtSecret;
 
-    private final String[] whiteList = {
-            // Các endpoint về authentication
-            "/api/v1/auth/**",
-    };
-
     private final ObjectMapper objectMapper;
 
     public GatewaySecurityConfig(ObjectMapper objectMapper) {
@@ -50,21 +45,29 @@ public class GatewaySecurityConfig {
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .cors(Customizer.withDefaults())
+                .authorizeExchange(exchanges -> exchanges
+                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .pathMatchers("/actuator/**").permitAll()
+                        .pathMatchers("/fallback/**").permitAll()
+
+//                       Auth service
+                        .pathMatchers("/user-service/actuator/prometheus").permitAll()
+                        .pathMatchers("/user-service/api/v1/auth/**").permitAll()
+                        .pathMatchers("/user-service/internal/**").denyAll()
+                        .pathMatchers("/user-service/**").authenticated()
+
+                        .anyExchange().authenticated()
+                )
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .bearerTokenConverter(cookieBearerTokenConverter())
+                        .jwt(jwt -> jwt.jwtDecoder(reactiveJwtDecoder()))
+                )
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint())
                         .accessDeniedHandler(accessDeniedHandler())
-                )
-                .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .pathMatchers(HttpMethod.GET, "/api/v1/roles/**").permitAll()
-                        .pathMatchers(HttpMethod.GET, "/api/v1/venues/**").permitAll()
-                        .pathMatchers(whiteList).permitAll()
-                        .anyExchange().authenticated())
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .bearerTokenConverter(cookieBearerTokenConverter())
-                        .jwt(jwt -> jwt.jwtDecoder(reactiveJwtDecoder())));
+                );
         return http.build();
     }
 
