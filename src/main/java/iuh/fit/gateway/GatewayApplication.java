@@ -13,10 +13,12 @@ import org.springframework.cloud.gateway.route.builder.GatewayFilterSpec;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 
 @SpringBootApplication
 @EnableFeignClients
 @Slf4j
+@EnableWebFluxSecurity
 public class GatewayApplication {
 
     @Value("${auth.service.url}")
@@ -38,16 +40,16 @@ public class GatewayApplication {
         }
 
         return builder.routes()
-                // User Service
-                .route("user-service-route", r -> r
-                        .path("/user-service/**")
+                // Auth Service
+                .route("auth-service-route", r -> r
+                        .path("/auth-service/**")
                         .filters(f -> commonFilters(
                                 f,
                                 defaultRateLimiter,
                                 ipKeyResolver,
-                                "/user-service",
+                                "/auth-service",
                                 "authServiceCircuitBreaker",
-                                "forward:/fallback/user-service",
+                                "forward:/fallback/auth-service",
                                 circuitBreakerEnabled)
                         )
                         .uri(authServiceUrl)

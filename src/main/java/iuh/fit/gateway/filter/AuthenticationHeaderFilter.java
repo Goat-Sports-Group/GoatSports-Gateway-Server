@@ -131,7 +131,7 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
                         .pathWithinApplication()
                         .value();
 
-        if (path.matches("^/[^/]+-service/admin(/.*)?$")) {
+        if (path.matches("^/[^/]+-service/api/v\\d+/admin(/.*)?$")) {
             return "ADMIN".equals(role);
         }
 

@@ -8,7 +8,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
@@ -29,7 +28,6 @@ import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
 
 @Configuration
-@EnableWebFluxSecurity
 @Slf4j
 public class GatewaySecurityConfig {
 
@@ -53,10 +51,10 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/fallback/**").permitAll()
 
 //                       Auth service
-                        .pathMatchers("/user-service/actuator/prometheus").permitAll()
-                        .pathMatchers("/user-service/api/v1/auth/**").permitAll()
-                        .pathMatchers("/user-service/internal/**").denyAll()
-                        .pathMatchers("/user-service/**").authenticated()
+                        .pathMatchers("/auth-service/actuator/prometheus").permitAll()
+                        .pathMatchers("/auth-service/api/v1/auth/**").permitAll()
+                        .pathMatchers("/auth-service/internal/**").denyAll()
+                        .pathMatchers("/auth-service/**").authenticated()
 
                         .anyExchange().authenticated()
                 )
