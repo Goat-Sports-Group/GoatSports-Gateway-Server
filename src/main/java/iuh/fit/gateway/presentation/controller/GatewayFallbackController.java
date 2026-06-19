@@ -1,6 +1,6 @@
-package iuh.fit.gateway.controller;
+package iuh.fit.gateway.presentation.controller;
 
-import iuh.fit.gateway.dto.base.BaseResponse;
+import iuh.fit.gateway.presentation.response.base.BaseResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

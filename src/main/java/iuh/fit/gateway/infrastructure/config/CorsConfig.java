@@ -1,4 +1,4 @@
-package iuh.fit.gateway.config;
+package iuh.fit.gateway.infrastructure.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

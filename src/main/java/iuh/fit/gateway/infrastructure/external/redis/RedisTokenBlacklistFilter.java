@@ -1,5 +1,4 @@
-package iuh.fit.gateway.filter;
-
+package iuh.fit.gateway.infrastructure.external.redis;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

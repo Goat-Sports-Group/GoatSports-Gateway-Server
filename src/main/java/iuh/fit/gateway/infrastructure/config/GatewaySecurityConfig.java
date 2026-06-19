@@ -1,6 +1,6 @@
-package iuh.fit.gateway.config;
+package iuh.fit.gateway.infrastructure.config;
 
-import iuh.fit.gateway.dto.base.BaseResponse;
+import iuh.fit.gateway.presentation.response.base.BaseResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

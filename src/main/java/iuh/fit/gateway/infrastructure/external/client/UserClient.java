@@ -1,7 +1,7 @@
-package iuh.fit.gateway.client;
+package iuh.fit.gateway.infrastructure.external.client;
 
-import iuh.fit.gateway.dto.base.BaseResponse;
-import iuh.fit.gateway.dto.base.UserPermissionResponse;
+import iuh.fit.gateway.presentation.response.auth.UserPermissionResponse;
+import iuh.fit.gateway.presentation.response.base.BaseResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;

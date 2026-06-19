@@ -1,7 +1,7 @@
-package iuh.fit.gateway.exception;
+package iuh.fit.gateway.infrastructure.exception;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import iuh.fit.gateway.dto.base.BaseResponse;
+import iuh.fit.gateway.presentation.response.base.BaseResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -68,4 +68,3 @@ public class GlobalErrorWebExceptionHandler implements WebExceptionHandler {
         return response.writeWith(Mono.just(response.bufferFactory().wrap(bytes)));
     }
 }
-

@@ -1,4 +1,4 @@
-package iuh.fit.gateway.config;
+package iuh.fit.gateway.infrastructure.config;
 
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;

@@ -1,6 +1,6 @@
-package iuh.fit.gateway.filter;
+package iuh.fit.gateway.infrastructure.filter;
 
-import iuh.fit.gateway.client.UserClient;
+import iuh.fit.gateway.infrastructure.external.client.UserClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
