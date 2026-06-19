@@ -96,15 +96,15 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
                 })
                 .subscribeOn(Schedulers.boundedElastic())
                 .map(response -> {
-                    if (response != null && response.getData() != null) {
-                        String role = normalizeRole(response.getData().getRole());
+                    if (response != null && response.data() != null) {
+                        String role = normalizeRole(response.data().role());
                         if(role.isBlank())  {
                             role = fallBackRole;
                         }
                         String authorities =
-                                response.getData().getPermissions() == null
+                                response.data().permissions() == null
                                         ? ""
-                                        : String.join(",", response.getData().getPermissions());
+                                        : String.join(",", response.data().permissions());
 
                         return new UserAccess(role, authorities);
                     }

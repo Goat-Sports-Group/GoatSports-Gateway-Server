@@ -1,7 +1,7 @@
 package iuh.fit.gateway.infrastructure.exception;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import iuh.fit.gateway.presentation.response.base.BaseResponse;
+import iuh.fit.gateway.application.dto.response.base.BaseResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -50,11 +50,12 @@ public class GlobalErrorWebExceptionHandler implements WebExceptionHandler {
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
         response.setStatusCode(status);
 
-        BaseResponse<Object> baseResponse = new BaseResponse<>();
-        baseResponse.setStatusCode(status.value());
-        baseResponse.setData(null);
-        baseResponse.setMessage(messageBody);
-        baseResponse.setError(ex.getClass().getSimpleName());
+        BaseResponse<Object> baseResponse = new BaseResponse<>(
+                status.value(),
+                null,
+                messageBody,
+                ex.getClass().getSimpleName()
+        );
 
         byte[] bytes;
         try {

@@ -1,6 +1,6 @@
 package iuh.fit.gateway.infrastructure.config;
 
-import iuh.fit.gateway.presentation.response.base.BaseResponse;
+import iuh.fit.gateway.application.dto.response.base.BaseResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -76,11 +76,12 @@ public class GatewaySecurityConfig {
             ServerHttpResponse response = exchange.getResponse();
             response.setStatusCode(HttpStatus.UNAUTHORIZED);
             response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-            BaseResponse<Object> base = new BaseResponse<>();
-            base.setStatusCode(HttpStatus.UNAUTHORIZED.value());
-            base.setData(null);
-            base.setMessage("Unauthorized");
-            base.setError(ex.getClass().getSimpleName());
+            BaseResponse<Object> base = new BaseResponse<>(
+                    HttpStatus.UNAUTHORIZED.value(),
+                    null,
+                    "Unauthorized",
+                    ex.getClass().getSimpleName()
+            );
             byte[] bytes;
             try {
                 bytes = objectMapper.writeValueAsBytes(base);
@@ -97,11 +98,12 @@ public class GatewaySecurityConfig {
             ServerHttpResponse response = exchange.getResponse();
             response.setStatusCode(HttpStatus.FORBIDDEN);
             response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-            BaseResponse<Object> base = new BaseResponse<>();
-            base.setStatusCode(HttpStatus.FORBIDDEN.value());
-            base.setData(null);
-            base.setMessage("Forbidden");
-            base.setError(denied.getClass().getSimpleName());
+            BaseResponse<Object> base = new BaseResponse<>(
+                    HttpStatus.FORBIDDEN.value(),
+                    null,
+                    "Forbidden",
+                    denied.getClass().getSimpleName()
+            );
             byte[] bytes;
             try {
                 bytes = objectMapper.writeValueAsBytes(base);

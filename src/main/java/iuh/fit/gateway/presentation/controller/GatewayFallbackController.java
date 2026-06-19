@@ -1,6 +1,6 @@
 package iuh.fit.gateway.presentation.controller;
 
-import iuh.fit.gateway.presentation.response.base.BaseResponse;
+import iuh.fit.gateway.application.dto.response.base.BaseResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -35,10 +35,12 @@ public class GatewayFallbackController {
     }
 
     private ResponseEntity<BaseResponse<Void>> buildFallbackResponse(String serviceName) {
-        BaseResponse<Void> body = BaseResponse.<Void>builder()
-                .statusCode(HttpStatus.SERVICE_UNAVAILABLE.value())
-                .message("Service " + serviceName + " is currently unavailable. Please try again later.")
-                .build();
+        BaseResponse<Void> body = new BaseResponse<Void>(
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                null,
+                "Service " + serviceName + " is currently unavailable. Please try again later.",
+                ""
+        );
 
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
     }
