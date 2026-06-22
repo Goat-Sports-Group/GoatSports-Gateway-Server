@@ -23,6 +23,8 @@ public class GatewayApplication {
 
     @Value("${auth.service.url}")
     private String authServiceUrl;
+    @Value("${venue.service.url}")
+    private String venueServiceUrl;
 
     public static void main(String[] args) {
         SpringApplication.run(GatewayApplication.class, args);
@@ -53,6 +55,21 @@ public class GatewayApplication {
                                 circuitBreakerEnabled)
                         )
                         .uri(authServiceUrl)
+                )
+
+                // Venue Service
+                .route("venue-service-route", r -> r
+                        .path("/venue-service/**")
+                        .filters(f -> commonFilters(
+                                f,
+                                defaultRateLimiter,
+                                ipKeyResolver,
+                                "/venue-service",
+                                "venueServiceCircuitBreaker",
+                                "forward:/fallback/venue-service",
+                                circuitBreakerEnabled)
+                        )
+                        .uri(venueServiceUrl)
                 )
                 .build();
     }

@@ -56,6 +56,11 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/auth-service/internal/**").denyAll()
                         .pathMatchers("/auth-service/**").authenticated()
 
+//                       Venue service
+                        .pathMatchers("/venue-service/actuator/prometheus").permitAll()
+                        .pathMatchers("/venue-service/internal/**").denyAll()
+                        .pathMatchers("/venue-service/**").authenticated()
+
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
