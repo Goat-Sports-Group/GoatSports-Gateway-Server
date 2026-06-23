@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
         url = "${auth.service.url}",
         path = "/internal/users"
 )
-public interface UserClient {
+public interface AuthClient {
     @GetMapping("/{userId}/permissions")
     BaseResponse<UserPermissionResponse> getUserPermissions(@PathVariable String userId);
 }

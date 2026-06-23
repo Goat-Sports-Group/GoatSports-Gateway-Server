@@ -1,6 +1,6 @@
 package iuh.fit.gateway.infrastructure.filter;
 
-import iuh.fit.gateway.infrastructure.external.client.UserClient;
+import iuh.fit.gateway.infrastructure.external.client.AuthClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
@@ -25,7 +25,7 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
     @Value("${gateway.internal-secret}")
     private String gatewaySecret;
 
-    private final ObjectProvider<UserClient> userClient;
+    private final ObjectProvider<AuthClient> userClient;
 
     private record UserAccess(
             String role,
@@ -89,7 +89,7 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
 
     private Mono<UserAccess> fetchUserAccess(String userId, String fallBackRole) {
         return Mono.fromCallable(() -> {
-                    UserClient client = userClient.getIfAvailable();
+                    AuthClient client = userClient.getIfAvailable();
                     return client != null
                             ? client.getUserPermissions(userId)
                             : null;
