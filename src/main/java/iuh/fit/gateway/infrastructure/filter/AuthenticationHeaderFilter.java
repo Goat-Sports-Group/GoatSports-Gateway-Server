@@ -134,9 +134,26 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
                         .value();
 
         if (path.matches("^/[^/]+-service/api/v\\d+/admin(/.*)?$")) {
-            return "ADMIN".equals(role);
+            return isAdmin(role);
+        }
+
+        if (path.startsWith("venue-service/api/v\\d+/venues")) {
+            return isAdmin(role) || isVenueOwner(role);
+        }
+
+        if (path.startsWith("venue-service/api/v\\d+/venue-courts")) {
+            return isAdmin(role) || isVenueOwner(role);
         }
 
         return true;
     }
+
+    private boolean isAdmin(String role) {
+        return "ADMIN".equals(role);
+    }
+
+    private boolean isVenueOwner(String role) {
+        return "VENUE_OWNER".equals(role);
+    }
+
 }
