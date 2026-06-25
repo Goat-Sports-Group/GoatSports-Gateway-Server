@@ -82,7 +82,7 @@ public class GatewaySecurityConfig {
             BaseResponse<Object> base = new BaseResponse<>(
                     HttpStatus.UNAUTHORIZED.value(),
                     null,
-                    "Unauthorized",
+                    ex.getMessage(),
                     ex.getClass().getSimpleName()
             );
             byte[] bytes;
