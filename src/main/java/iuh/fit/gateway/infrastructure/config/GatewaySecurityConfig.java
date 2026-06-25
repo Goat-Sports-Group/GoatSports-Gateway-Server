@@ -76,8 +76,6 @@ public class GatewaySecurityConfig {
 
     private ServerAuthenticationEntryPoint authenticationEntryPoint() {
         return (exchange, ex) -> {
-            log.error("AuthenticationEntryPoint", ex);
-
             ServerHttpResponse response = exchange.getResponse();
             response.setStatusCode(HttpStatus.UNAUTHORIZED);
             response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
@@ -106,7 +104,7 @@ public class GatewaySecurityConfig {
             BaseResponse<Object> base = new BaseResponse<>(
                     HttpStatus.FORBIDDEN.value(),
                     null,
-                    "Forbidden",
+                    denied.getMessage(),
                     denied.getClass().getSimpleName()
             );
             byte[] bytes;

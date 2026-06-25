@@ -8,9 +8,11 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -20,6 +22,7 @@ import reactor.core.scheduler.Schedulers;
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class AuthenticationHeaderFilter implements GlobalFilter {
 
     @Value("${gateway.internal-secret}")
@@ -52,8 +55,7 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
                     return fetchUserAccess(userId, jwtRole)
                             .flatMap(access -> {
                                 if (!isAllowed(exchange, access.role())) {
-                                    exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
-                                    return exchange.getResponse().setComplete();
+                                    return Mono.error(new AccessDeniedException("Không có quyền truy cập"));
                                 }
 
                                 ServerHttpRequest request = exchange.getRequest()
@@ -133,15 +135,18 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
                         .pathWithinApplication()
                         .value();
 
+        log.info("PATH = {}", path);
+        log.info("ROLE = {}", role);
+
         if (path.matches("^/[^/]+-service/api/v\\d+/admin(/.*)?$")) {
             return isAdmin(role);
         }
 
-        if (path.startsWith("venue-service/api/v\\d+/venues")) {
+        if (path.startsWith("/venue-service/api/v\\d+/venues")) {
             return isAdmin(role) || isVenueOwner(role);
         }
 
-        if (path.startsWith("venue-service/api/v\\d+/venue-courts")) {
+        if (path.startsWith("/venue-service/api/v\\d+/venue-courts")) {
             return isAdmin(role) || isVenueOwner(role);
         }
 
