@@ -61,6 +61,11 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/venue-service/internal/**").denyAll()
                         .pathMatchers("/venue-service/**").authenticated()
 
+//                       Notification service
+                        .pathMatchers("/notification-service/actuator/prometheus").permitAll()
+                        .pathMatchers("/notification-service/internal/**").denyAll()
+                        .pathMatchers("/notification-service/**").authenticated()
+
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
