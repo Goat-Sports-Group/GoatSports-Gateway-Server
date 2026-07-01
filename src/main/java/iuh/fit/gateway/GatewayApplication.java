@@ -27,6 +27,8 @@ public class GatewayApplication {
     private String venueServiceUrl;
     @Value("${notification.service.url}")
     private String notificationServiceUrl;
+    @Value("${report.service.url}")
+    private String reportServiceUrl;
 
     public static void main(String[] args) {
         SpringApplication.run(GatewayApplication.class, args);
@@ -87,6 +89,21 @@ public class GatewayApplication {
                                 circuitBreakerEnabled)
                         )
                         .uri(notificationServiceUrl)
+                )
+
+                // Report Service
+                .route("report-service-route", r -> r
+                        .path("/report-service/**")
+                        .filters(f -> commonFilters(
+                                f,
+                                defaultRateLimiter,
+                                ipKeyResolver,
+                                "/report-service",
+                                "reportServiceCircuitBreaker",
+                                "forward:/fallback/report-service",
+                                circuitBreakerEnabled)
+                        )
+                        .uri(reportServiceUrl)
                 )
 
                 .build();
