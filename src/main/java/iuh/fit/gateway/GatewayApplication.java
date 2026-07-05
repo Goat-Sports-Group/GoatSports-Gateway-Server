@@ -30,6 +30,8 @@ public class GatewayApplication {
     private String notificationServiceUrl;
     @Value("${report.service.url}")
     private String reportServiceUrl;
+    @Value("${storage.service.url}")
+    private String storageServiceUrl;
 
     public static void main(String[] args) {
         SpringApplication.run(GatewayApplication.class, args);
@@ -105,6 +107,21 @@ public class GatewayApplication {
                                 circuitBreakerEnabled)
                         )
                         .uri(reportServiceUrl)
+                )
+
+                // Storage Service
+                .route("storage-service-route", r -> r
+                        .path("/storage-service/**")
+                        .filters(f -> commonFilters(
+                                f,
+                                defaultRateLimiter,
+                                ipKeyResolver,
+                                "/storage-service",
+                                "storageServiceCircuitBreaker",
+                                "forward:/fallback/storage-service",
+                                circuitBreakerEnabled)
+                        )
+                        .uri(storageServiceUrl)
                 )
 
                 .build();

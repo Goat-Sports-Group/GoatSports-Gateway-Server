@@ -39,6 +39,11 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/report-service/actuator/prometheus").permitAll()
                         .pathMatchers("/report-service/**").authenticated()
 
+//                       Storage Service
+                        .pathMatchers("/storage-service/public/**").permitAll()
+                        .pathMatchers("/storage-service/internal/**").denyAll()
+                        .pathMatchers("/storage-service/**").authenticated()
+
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
