@@ -7,8 +7,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 @FeignClient(
-        name = "GOATSPORTS-AUTH-SERVICE",
-        url = "${auth.service.url}",
+        name = "GOATSPORTS-USER-SERVICE",
+        url = "${user.service.url}",
         path = "/internal/users"
 )
 public interface AuthClient {

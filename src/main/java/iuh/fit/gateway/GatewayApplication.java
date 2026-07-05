@@ -1,6 +1,7 @@
 package iuh.fit.gateway;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
@@ -17,12 +18,12 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 
 @SpringBootApplication
 @EnableFeignClients
-@Slf4j
 @EnableWebFluxSecurity
 public class GatewayApplication {
+    private static final Logger log = LoggerFactory.getLogger(GatewayApplication.class);
 
-    @Value("${auth.service.url}")
-    private String authServiceUrl;
+    @Value("${user.service.url}")
+    private String userServiceUrl;
     @Value("${venue.service.url}")
     private String venueServiceUrl;
     @Value("${notification.service.url}")
@@ -46,19 +47,19 @@ public class GatewayApplication {
         }
 
         return builder.routes()
-                // Auth Service
-                .route("auth-service-route", r -> r
-                        .path("/auth-service/**")
+                // User Service
+                .route("user-service-route", r -> r
+                        .path("/user-service/**")
                         .filters(f -> commonFilters(
                                 f,
                                 defaultRateLimiter,
                                 ipKeyResolver,
-                                "/auth-service",
-                                "authServiceCircuitBreaker",
-                                "forward:/fallback/auth-service",
+                                "/user-service",
+                                "userServiceCircuitBreaker",
+                                "forward:/fallback/user-service",
                                 circuitBreakerEnabled)
                         )
-                        .uri(authServiceUrl)
+                        .uri(userServiceUrl)
                 )
 
                 // Venue Service

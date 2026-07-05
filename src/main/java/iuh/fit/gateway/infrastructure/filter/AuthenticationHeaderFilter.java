@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -20,15 +19,15 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
 public class AuthenticationHeaderFilter implements GlobalFilter {
-
-    @Value("${gateway.internal-secret}")
-    private String gatewaySecret;
-
     private final ObjectProvider<AuthClient> userClient;
 
     private record UserAccess(
@@ -50,8 +49,7 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
                 .flatMap(jwtAuth -> {
                     String userId = jwtAuth.getToken().getSubject();
                     String email = jwtAuth.getToken().getClaimAsString("email");
-                    String username = jwtAuth.getToken().getClaimAsString("username");
-                    String jwtRole = jwtAuth.getToken().getClaimAsString("role");
+                    String jwtRole = resolveRoleFromJwt(jwtAuth);
 
                     return fetchUserAccess(userId, jwtRole)
                         .flatMap(access -> {
@@ -69,39 +67,65 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
 
                             ServerHttpRequest request = exchange.getRequest()
                                 .mutate()
-                                .header("X-Gateway-Secret", gatewaySecret)
-                                .header("X-User-Id", userId)
-                                .header("X-User-Username", username == null ? "" : username)
-                                .header("X-User-Email", email == null ? "" : email)
-                                .header("X-User-Roles", access.role())
+                                .header("X-User-KeycloakId", userId)
+                                .header("X-User-Email", email)
+                                .header("X-User-Role", access.role())
                                 .header("X-User-Authorities", access.authorities())
                                 .build();
 
-                            return chain.filter(
-                                exchange.mutate().request(request).build()
-                            );
+                            return chain.filter(exchange.mutate().request(request).build());
                         });
                 })
-                .switchIfEmpty(
-                    chain.filter(
-                        exchange.mutate()
-                            .request(
-                                exchange.getRequest()
-                                    .mutate()
-                                    .header("X-Gateway-Secret", gatewaySecret)
-                                    .build()
-                            )
-                            .build()
-                    )
-                );
+                .switchIfEmpty(chain.filter(exchange));
+    }
+
+    private String resolveRoleFromJwt(JwtAuthenticationToken jwtAuth) {
+        List<String> rolePriority = List.of("ADMIN", "VENUE_OWNER", "PLAYER");
+
+        Object realmAccess = jwtAuth.getToken().getClaims().get("realm_access");
+        if (realmAccess instanceof Map<?, ?> map) {
+            String role = findFirstKnownRole(map.get("roles"), rolePriority);
+            if (!role.isBlank()) {
+                return role;
+            }
+        }
+
+        Object resourceAccess = jwtAuth.getToken().getClaims().get("resource_access");
+        if (resourceAccess instanceof Map<?, ?> clients) {
+            for (Object clientAccess : clients.values()) {
+                if (clientAccess instanceof Map<?, ?> map) {
+                    String role = findFirstKnownRole(map.get("roles"), rolePriority);
+                    if (!role.isBlank()) {
+                        return role;
+                    }
+                }
+            }
+        }
+
+        return "";
+    }
+
+    private String findFirstKnownRole(Object rolesObject, List<String> rolePriority) {
+        if (!(rolesObject instanceof Collection<?> roles)) {
+            return "";
+        }
+
+        List<String> normalizedRoles = roles.stream()
+                .filter(Objects::nonNull)
+                .map(Object::toString)
+                .map(this::normalizeRole)
+                .toList();
+
+        return rolePriority.stream()
+                .filter(normalizedRoles::contains)
+                .findFirst()
+                .orElse("");
     }
 
     private Mono<UserAccess> fetchUserAccess(String userId, String fallBackRole) {
         return Mono.fromCallable(() -> {
                     AuthClient client = userClient.getIfAvailable();
-                    return client != null
-                            ? client.getUserPermissions(userId)
-                            : null;
+                    return client != null ? client.getUserPermissions(userId) : null;
                 })
                 .subscribeOn(Schedulers.boundedElastic())
                 .map(response -> {
@@ -136,11 +160,9 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
         return role.replace("ROLE_", "").toUpperCase();
     }
 
+
     private boolean isAllowed(ServerWebExchange exchange, String role) {
-        String path = exchange.getRequest()
-                        .getPath()
-                        .pathWithinApplication()
-                        .value();
+        String path = exchange.getRequest().getPath().pathWithinApplication().value();
 
         log.info("PATH = {}", path);
         log.info("ROLE = {}", role);
