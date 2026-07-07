@@ -51,7 +51,7 @@ public class GatewaySecurityConfig {
 
 //                       User service
                         .pathMatchers("/user-service/actuator/prometheus").permitAll()
-                        .pathMatchers("/user-service/api/v1/me/**").permitAll()
+                        .pathMatchers("/user-service/api/v1/auth/**").permitAll()
                         .pathMatchers("/user-service/internal/**").denyAll()
                         .pathMatchers("/user-service/**").authenticated()
 
