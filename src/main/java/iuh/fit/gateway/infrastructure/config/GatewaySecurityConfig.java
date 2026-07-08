@@ -49,41 +49,38 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/actuator/**").permitAll()
                         .pathMatchers("/fallback/**").permitAll()
 
-//                       User service
+                        // User service
                         .pathMatchers("/user-service/actuator/prometheus").permitAll()
                         .pathMatchers("/user-service/api/v1/auth/**").permitAll()
                         .pathMatchers("/user-service/internal/**").denyAll()
                         .pathMatchers("/user-service/**").authenticated()
 
-//                       Venue service
+                        // Venue service
                         .pathMatchers("/venue-service/actuator/prometheus").permitAll()
                         .pathMatchers("/venue-service/internal/**").denyAll()
                         .pathMatchers("/venue-service/**").authenticated()
 
-//                       Notification service
+                        // Notification service
                         .pathMatchers("/notification-service/actuator/prometheus").permitAll()
                         .pathMatchers("/notification-service/internal/**").denyAll()
                         .pathMatchers("/notification-service/**").authenticated()
 
-//                       Report service
+                        // Report service
                         .pathMatchers("/report-service/actuator/prometheus").permitAll()
                         .pathMatchers("/report-service/**").authenticated()
 
-//                       Storage Service
+                        // Storage Service
                         .pathMatchers("/storage-service/public/**").permitAll()
                         .pathMatchers("/storage-service/internal/**").denyAll()
                         .pathMatchers("/storage-service/**").authenticated()
 
-                        .anyExchange().authenticated()
-                )
+                        .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .bearerTokenConverter(cookieBearerTokenConverter())
-                        .jwt(jwt -> jwt.jwtDecoder(reactiveJwtDecoder()))
-                )
+                        .jwt(jwt -> jwt.jwtDecoder(reactiveJwtDecoder())))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(authenticationEntryPoint())
-                        .accessDeniedHandler(accessDeniedHandler())
-                );
+                        .accessDeniedHandler(accessDeniedHandler()));
 
         return http.build();
     }
@@ -98,8 +95,7 @@ public class GatewaySecurityConfig {
                     HttpStatus.UNAUTHORIZED.value(),
                     null,
                     ex.getMessage(),
-                    ex.getClass().getSimpleName()
-            );
+                    ex.getClass().getSimpleName());
 
             byte[] bytes;
             try {
@@ -121,8 +117,7 @@ public class GatewaySecurityConfig {
                     HttpStatus.FORBIDDEN.value(),
                     null,
                     denied.getMessage(),
-                    denied.getClass().getSimpleName()
-            );
+                    denied.getClass().getSimpleName());
             byte[] bytes;
             try {
                 bytes = objectMapper.writeValueAsBytes(base);

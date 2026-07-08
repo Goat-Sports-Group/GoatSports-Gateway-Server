@@ -52,6 +52,12 @@ public class RedisTokenBlacklistFilter implements GlobalFilter {
         return redisTemplate.hasKey("blacklist:" + token)
                 .flatMap(exists -> {
                     if (Boolean.TRUE.equals(exists)) {
+                        return Mono.just(true);
+                    }
+                    return redisTemplate.hasKey("blacklist_refresh:" + token);
+                })
+                .flatMap(isBlacklisted -> {
+                    if (Boolean.TRUE.equals(isBlacklisted)) {
                         log.error("==== RETURN 401 FROM BLACKLIST FILTER ====");
                         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                         return exchange.getResponse().setComplete();
@@ -59,5 +65,6 @@ public class RedisTokenBlacklistFilter implements GlobalFilter {
 
                     return chain.filter(exchange);
                 });
+
     }
 }
