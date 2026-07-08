@@ -22,8 +22,8 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 public class GatewayApplication {
     private static final Logger log = LoggerFactory.getLogger(GatewayApplication.class);
 
-    @Value("${user.service.url}")
-    private String userServiceUrl;
+    @Value("${auth.service.url}")
+    private String authServiceUrl;
     @Value("${venue.service.url}")
     private String venueServiceUrl;
     @Value("${notification.service.url}")
@@ -50,18 +50,18 @@ public class GatewayApplication {
 
         return builder.routes()
                 // User Service
-                .route("user-service-route", r -> r
-                        .path("/user-service/**")
+                .route("auth-service-route", r -> r
+                        .path("/auth-service/**")
                         .filters(f -> commonFilters(
                                 f,
                                 defaultRateLimiter,
                                 ipKeyResolver,
-                                "/user-service",
-                                "userServiceCircuitBreaker",
-                                "forward:/fallback/user-service",
+                                "/auth-service",
+                                "authServiceCircuitBreaker",
+                                "forward:/fallback/auth-service",
                                 circuitBreakerEnabled)
                         )
-                        .uri(userServiceUrl)
+                        .uri(authServiceUrl)
                 )
 
                 // Venue Service

@@ -49,11 +49,11 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/actuator/**").permitAll()
                         .pathMatchers("/fallback/**").permitAll()
 
-                        // User service
-                        .pathMatchers("/user-service/actuator/prometheus").permitAll()
-                        .pathMatchers("/user-service/api/v1/auth/**").permitAll()
-                        .pathMatchers("/user-service/internal/**").denyAll()
-                        .pathMatchers("/user-service/**").authenticated()
+                        // Auth service
+                        .pathMatchers("/auth-service/actuator/prometheus").permitAll()
+                        .pathMatchers("/auth-service/api/v1/auth/**").permitAll()
+                        .pathMatchers("/auth-service/internal/**").denyAll()
+                        .pathMatchers("/auth-service/**").authenticated()
 
                         // Venue service
                         .pathMatchers("/venue-service/actuator/prometheus").permitAll()
