@@ -53,6 +53,7 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/auth-service/actuator/prometheus").permitAll()
                         .pathMatchers("/auth-service/api/v1/auth/**").permitAll()
                         .pathMatchers("/auth-service/internal/**").denyAll()
+                        .pathMatchers("/auth-service/callback/**").denyAll()
                         .pathMatchers("/auth-service/**").authenticated()
 
                         // Venue service
