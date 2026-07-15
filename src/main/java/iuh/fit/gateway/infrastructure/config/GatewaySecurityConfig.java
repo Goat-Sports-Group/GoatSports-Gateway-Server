@@ -75,6 +75,9 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/storage-service/internal/**").denyAll()
                         .pathMatchers("/storage-service/**").authenticated()
 
+                        // Workflow Service
+                        .pathMatchers("/workflow-service/**").authenticated()
+
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .bearerTokenConverter(cookieBearerTokenConverter())
