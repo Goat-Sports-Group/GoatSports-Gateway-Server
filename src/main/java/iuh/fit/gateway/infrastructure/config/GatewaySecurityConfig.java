@@ -50,32 +50,33 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/fallback/**").permitAll()
 
                         // Auth service
-                        .pathMatchers("/auth-service/actuator/prometheus").permitAll()
+                        .pathMatchers("/auth-service/actuator/**").permitAll()
                         .pathMatchers("/auth-service/api/v1/auth/**").permitAll()
                         .pathMatchers("/auth-service/internal/**").denyAll()
                         .pathMatchers("/auth-service/callback/**").denyAll()
                         .pathMatchers("/auth-service/**").authenticated()
 
                         // Venue service
-                        .pathMatchers("/venue-service/actuator/prometheus").permitAll()
+                        .pathMatchers("/venue-service/actuator/**").permitAll()
                         .pathMatchers("/venue-service/internal/**").denyAll()
                         .pathMatchers("/venue-service/**").authenticated()
 
                         // Notification service
-                        .pathMatchers("/notification-service/actuator/prometheus").permitAll()
+                        .pathMatchers("/notification-service/actuator/**").permitAll()
                         .pathMatchers("/notification-service/internal/**").denyAll()
                         .pathMatchers("/notification-service/**").authenticated()
 
                         // Report service
-                        .pathMatchers("/report-service/actuator/prometheus").permitAll()
+                        .pathMatchers("/report-service/actuator/**").permitAll()
                         .pathMatchers("/report-service/**").authenticated()
 
                         // Storage Service
-                        .pathMatchers("/storage-service/public/**").permitAll()
+                        .pathMatchers("/storage-service/actuator/**").permitAll()
                         .pathMatchers("/storage-service/internal/**").denyAll()
                         .pathMatchers("/storage-service/**").authenticated()
 
                         // Workflow Service
+                        .pathMatchers("/workflow-service/actuator/**").permitAll()
                         .pathMatchers("/workflow-service/**").authenticated()
 
                         .anyExchange().authenticated())
