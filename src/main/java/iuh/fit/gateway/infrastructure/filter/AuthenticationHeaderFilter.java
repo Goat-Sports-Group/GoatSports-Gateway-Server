@@ -8,10 +8,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
-import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
@@ -19,7 +17,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 @Component
 @RequiredArgsConstructor
@@ -30,11 +28,11 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
     private String gatewaySecret;
 
     private final ObjectProvider<AuthClient> userClient;
+    private final ReactiveStringRedisTemplate redisTemplate;
 
     private record UserAccess(
             String role,
-            String authorities
-    ) {
+            String authorities) {
     }
 
     @NotNull
@@ -55,18 +53,6 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
 
                     return fetchUserAccess(userId, jwtRole)
                             .flatMap(access -> {
-                                if (!isAllowed(exchange, access.role())) {
-                                    return Mono.defer(() -> {
-                                        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
-                                        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
-
-                                        byte[] bytes = "{\"message\": \"Không có quyền truy cập\"}".getBytes(StandardCharsets.UTF_8);
-                                        DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(bytes);
-
-                                        return exchange.getResponse().writeWith(Mono.just(buffer));
-                                    });
-                                }
-
                                 ServerHttpRequest request = exchange.getRequest()
                                         .mutate()
                                         .header("X-Gateway-Secret", gatewaySecret)
@@ -78,8 +64,7 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
                                         .build();
 
                                 return chain.filter(
-                                        exchange.mutate().request(request).build()
-                                );
+                                        exchange.mutate().request(request).build());
                             });
                 })
                 .switchIfEmpty(
@@ -89,83 +74,58 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
                                                 exchange.getRequest()
                                                         .mutate()
                                                         .header("X-Gateway-Secret", gatewaySecret)
-                                                        .build()
-                                        )
-                                        .build()
-                        )
-                );
+                                                        .build())
+                                        .build()));
     }
 
     private Mono<UserAccess> fetchUserAccess(String userId, String fallBackRole) {
-        return Mono.fromCallable(() -> {
-                    AuthClient client = userClient.getIfAvailable();
-                    return client != null
-                            ? client.getUserPermissions(userId)
-                            : null;
-                })
-                .subscribeOn(Schedulers.boundedElastic())
-                .map(response -> {
-                    if (response != null && response.data() != null) {
-                        String role = normalizeRole(response.data().role());
-                        if(role.isBlank())  {
-                            role = fallBackRole;
-                        }
-                        String authorities =
-                                response.data().permissions() == null
-                                        ? ""
-                                        : String.join(",", response.data().permissions());
+        String role = normalizeRole(fallBackRole);
+        String cacheKey = "PERMISSION:ROLE:" + role;
 
-                        return new UserAccess(role, authorities);
-                    }
-
-                    return new UserAccess(fallBackRole, "");
+        return redisTemplate.opsForValue().get(cacheKey)
+                .map(authorities -> {
+                    log.info("Cache hit for role {}: {}", role, authorities);
+                    return new UserAccess(role, authorities);
                 })
-                .defaultIfEmpty(new UserAccess(fallBackRole, ""))
+                .switchIfEmpty(
+                        Mono.defer(() -> {
+                            log.info("Cache miss for role {}, loading permissions for user {}", role, userId);
+                            return Mono.fromCallable(() -> {
+                                AuthClient client = userClient.getIfAvailable();
+                                return client != null ? client.getUserPermissions(userId) : null;
+                            })
+                                    .subscribeOn(Schedulers.boundedElastic())
+                                    .flatMap(response -> {
+                                        if (response != null && response.data() != null) {
+                                            String loadedRole = normalizeRole(response.data().role());
+                                            if (loadedRole.isBlank()) {
+                                                loadedRole = role;
+                                            }
+                                            String authorities = response.data().permissions() == null
+                                                    ? ""
+                                                    : String.join(",", response.data().permissions());
+
+                                            String finalRole = loadedRole;
+                                            String finalCacheKey = "PERMISSION:ROLE:" + finalRole;
+
+                                            return redisTemplate.opsForValue()
+                                                    .set(finalCacheKey, authorities, Duration.ofMinutes(15))
+                                                    .thenReturn(new UserAccess(finalRole, authorities));
+                                        }
+                                        return Mono.just(new UserAccess(role, ""));
+                                    });
+                        }))
+                .defaultIfEmpty(new UserAccess(role, ""))
                 .onErrorResume(ex -> {
-                    log.warn(
-                            "Cannot fetch permission of user {} : {}",
-                            userId,
-                            ex.getMessage()
-                    );
-                    return Mono.just(new UserAccess(fallBackRole, ""));
+                    log.warn("Cannot fetch permission of user {} : {}", userId, ex.getMessage());
+                    return Mono.just(new UserAccess(role, ""));
                 });
     }
 
     private String normalizeRole(String role) {
-        if (role == null) return "";
+        if (role == null)
+            return "";
         return role.replace("ROLE_", "").toUpperCase();
-    }
-
-    private boolean isAllowed(ServerWebExchange exchange, String role) {
-        String path = exchange.getRequest()
-                .getPath()
-                .pathWithinApplication()
-                .value();
-
-        log.info("PATH = {}", path);
-        log.info("ROLE = {}", role);
-
-        if (path.matches("/api/v\\d+/admin(/.*)?$")) {
-            return isAdmin(role);
-        }
-
-        if (path.startsWith("/api/v\\d+/venues")) {
-            return isAdmin(role) || isVenueOwner(role);
-        }
-
-        if (path.startsWith("/api/v\\d+/venue-courts")) {
-            return isAdmin(role) || isVenueOwner(role);
-        }
-
-        return true;
-    }
-
-    private boolean isAdmin(String role) {
-        return "ADMIN".equals(role);
-    }
-
-    private boolean isVenueOwner(String role) {
-        return "VENUE_OWNER".equals(role);
     }
 
 }
