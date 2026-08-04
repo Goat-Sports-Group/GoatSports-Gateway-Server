@@ -79,6 +79,10 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/workflow-service/actuator/**").permitAll()
                         .pathMatchers("/workflow-service/**").authenticated()
 
+                        // Audit Service
+                        .pathMatchers("/audit-service/actuator/**").permitAll()
+                        .pathMatchers("/audit-service/**").authenticated()
+
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .bearerTokenConverter(cookieBearerTokenConverter())

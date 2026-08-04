@@ -34,6 +34,8 @@ public class GatewayApplication {
     private String storageServiceUrl;
     @Value("${workflow.service.url}")
     private String workflowServiceUrl;
+    @Value("${audit.service.url}")
+    private String auditServiceUrl;
 
     public static void main(String[] args) {
         SpringApplication.run(GatewayApplication.class, args);
@@ -139,6 +141,21 @@ public class GatewayApplication {
                                 circuitBreakerEnabled)
                         )
                         .uri(workflowServiceUrl)
+                )
+
+                // Audit Service
+                .route("audit-service-route", r -> r
+                        .path("/audit-service/**")
+                        .filters(f -> commonFilters(
+                                f,
+                                defaultRateLimiter,
+                                ipKeyResolver,
+                                "/audit-service",
+                                "auditServiceCircuitBreaker",
+                                "forward:/fallback/audit-service",
+                                circuitBreakerEnabled)
+                        )
+                        .uri(auditServiceUrl)
                 )
 
                 .build();
