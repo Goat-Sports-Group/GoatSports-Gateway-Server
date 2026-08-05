@@ -36,6 +36,8 @@ public class GlobalErrorWebExceptionHandler implements WebExceptionHandler {
             return Mono.error(ex);
         }
 
+        exchange.getAttributes().put("errorMessage", ex.getMessage());
+
         HttpStatusCode status;
         Object messageBody;
 

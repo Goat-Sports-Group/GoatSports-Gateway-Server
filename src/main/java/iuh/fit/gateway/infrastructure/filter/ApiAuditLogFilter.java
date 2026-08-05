@@ -48,18 +48,19 @@ public class ApiAuditLogFilter implements GlobalFilter, Ordered {
         long startTime = System.currentTimeMillis();
 
         return chain.filter(exchange).then(Mono.fromRunnable(() -> {
+            String errorMessage = exchange.getAttribute("errorMessage");
             long duration = System.currentTimeMillis() - startTime;
 
             ServerHttpRequest request = exchange.getRequest();
             String userId = request.getHeaders().getFirst("X-User-Id");
             if (userId == null || userId.isBlank()) {
-                userId = "ANONYMOUS";
+                userId = "anonymous";
             }
 
             String method = request.getMethod().name();
             String queryParams = request.getQueryParams().isEmpty() ? "" : request.getQueryParams().toString();
             String ipAddress = request.getRemoteAddress() != null ?
-                    request.getRemoteAddress().getAddress().getHostAddress() : "UNKNOWN";
+                    request.getRemoteAddress().getAddress().getHostAddress() : "unknown";
 
             int statusCode = exchange.getResponse().getStatusCode() != null ?
                     exchange.getResponse().getStatusCode().value() : 200;
@@ -78,6 +79,7 @@ public class ApiAuditLogFilter implements GlobalFilter, Ordered {
                     .statusCode(statusCode)
                     .duration(duration)
                     .timestamp(LocalDateTime.now())
+                    .errorMessage(errorMessage)
                     .build();
 
             kafkaTemplate.send(userLogTopic, event)

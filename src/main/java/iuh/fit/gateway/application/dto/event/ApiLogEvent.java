@@ -21,4 +21,5 @@ public class ApiLogEvent implements Serializable {
     private int statusCode;
     private long duration;
     private LocalDateTime timestamp;
+    private String errorMessage;
 }
