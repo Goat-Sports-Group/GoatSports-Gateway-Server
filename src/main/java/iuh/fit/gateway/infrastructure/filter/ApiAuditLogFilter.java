@@ -10,6 +10,7 @@ import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -45,51 +46,64 @@ public class ApiAuditLogFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        long startTime = System.currentTimeMillis();
+        return exchange.getPrincipal()
+                .map(principal -> {
+                    if (principal instanceof JwtAuthenticationToken jwtAuth) {
+                        return jwtAuth.getToken().getSubject();
+                    }
+                    return "anonymous";
+                })
+                .defaultIfEmpty("anonymous")
+                .flatMap(userId -> {
+                    long startTime = System.currentTimeMillis();
 
-        return chain.filter(exchange).then(Mono.fromRunnable(() -> {
-            String errorMessage = exchange.getAttribute("errorMessage");
-            long duration = System.currentTimeMillis() - startTime;
+                    return chain.filter(exchange).then(Mono.fromRunnable(() -> {
+                        String errorMessage = exchange.getAttribute("errorMessage");
+                        long duration = System.currentTimeMillis() - startTime;
 
-            ServerHttpRequest request = exchange.getRequest();
-            String userId = request.getHeaders().getFirst("X-User-Id");
-            if (userId == null || userId.isBlank()) {
-                userId = "anonymous";
-            }
-
-            String method = request.getMethod().name();
-            String queryParams = request.getQueryParams().isEmpty() ? "" : request.getQueryParams().toString();
-            String ipAddress = request.getRemoteAddress() != null ?
-                    request.getRemoteAddress().getAddress().getHostAddress() : "unknown";
-
-            int statusCode = exchange.getResponse().getStatusCode() != null ?
-                    exchange.getResponse().getStatusCode().value() : 200;
-
-            // Skip logging for GET audit-logs to avoid recursive logging of logs
-            if (path.contains("/api/v1/logs")) {
-                return;
-            }
-
-            ApiLogEvent event = ApiLogEvent.builder()
-                    .userId(userId)
-                    .method(method)
-                    .path(path)
-                    .queryParams(queryParams)
-                    .ipAddress(ipAddress)
-                    .statusCode(statusCode)
-                    .duration(duration)
-                    .timestamp(LocalDateTime.now())
-                    .errorMessage(errorMessage)
-                    .build();
-
-            kafkaTemplate.send(userLogTopic, event)
-                    .whenComplete((result, ex) -> {
-                        if (ex != null) {
-                            log.error("Failed to send audit log to Kafka: {}", ex.getMessage());
-                        } else {
-                            log.debug("Sent audit log for {} {} (Status: {}, Duration: {}ms)", method, path, statusCode, duration);
+                        ServerHttpRequest request = exchange.getRequest();
+                        String finalUserId = userId;
+                        if ("anonymous".equals(finalUserId)) {
+                            String headerUserId = request.getHeaders().getFirst("X-User-Id");
+                            if (headerUserId != null && !headerUserId.isBlank()) {
+                                finalUserId = headerUserId;
+                            }
                         }
-                    });
-        }));
+
+                        String method = request.getMethod().name();
+                        String queryParams = request.getQueryParams().isEmpty() ? "" : request.getQueryParams().toString();
+                        String ipAddress = request.getRemoteAddress() != null ?
+                                request.getRemoteAddress().getAddress().getHostAddress() : "unknown";
+
+                        int statusCode = exchange.getResponse().getStatusCode() != null ?
+                                exchange.getResponse().getStatusCode().value() : 200;
+
+                        // Skip logging for GET audit-logs to avoid recursive logging of logs
+                        if (path.contains("/api/v1/logs")) {
+                            return;
+                        }
+
+                        ApiLogEvent event = ApiLogEvent.builder()
+                                .userId(finalUserId)
+                                .method(method)
+                                .path(path)
+                                .queryParams(queryParams)
+                                .ipAddress(ipAddress)
+                                .statusCode(statusCode)
+                                .duration(duration)
+                                .timestamp(LocalDateTime.now())
+                                .errorMessage(errorMessage)
+                                .build();
+
+                        kafkaTemplate.send(userLogTopic, event)
+                                .whenComplete((result, ex) -> {
+                                    if (ex != null) {
+                                        log.error("Failed to send audit log to Kafka: {}", ex.getMessage());
+                                    } else {
+                                        log.debug("Sent audit log for {} {} (Status: {}, Duration: {}ms)", method, path, statusCode, duration);
+                                    }
+                                });
+                    }));
+                });
     }
 }
