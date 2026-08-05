@@ -26,7 +26,7 @@ public class ApiAuditLogFilter implements GlobalFilter, Ordered {
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     private static final List<String> EXCLUDE_PATHS = List.of(
-            "/actuator", "/health", "/prometheus", "/fallback"
+            "/actuator", "/health", "/prometheus", "/fallback", "/ws"
     );
 
     @Value("${spring.kafka.topic.user-log}")
