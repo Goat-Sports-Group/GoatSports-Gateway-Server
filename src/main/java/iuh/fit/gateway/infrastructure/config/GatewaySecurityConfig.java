@@ -83,6 +83,11 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/audit-service/actuator/**").permitAll()
                         .pathMatchers("/audit-service/**").authenticated()
 
+                        // Payment service
+                        .pathMatchers("/payment-service/actuator/**").permitAll()
+                        .pathMatchers("/payment-service/internal/**").denyAll()
+                        .pathMatchers("/payment-service/**").authenticated()
+
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .bearerTokenConverter(cookieBearerTokenConverter())

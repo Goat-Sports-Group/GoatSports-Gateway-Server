@@ -36,6 +36,8 @@ public class GatewayApplication {
     private String workflowServiceUrl;
     @Value("${audit.service.url}")
     private String auditServiceUrl;
+    @Value("${payment.service.url}")
+    private String paymentServiceUrl;
 
     public static void main(String[] args) {
         SpringApplication.run(GatewayApplication.class, args);
@@ -156,6 +158,21 @@ public class GatewayApplication {
                                 circuitBreakerEnabled)
                         )
                         .uri(auditServiceUrl)
+                )
+
+                // Payment Service
+                .route("payment-service-route", r -> r
+                        .path("/payment-service/**")
+                        .filters(f -> commonFilters(
+                                f,
+                                defaultRateLimiter,
+                                ipKeyResolver,
+                                "/payment-service",
+                                "paymentServiceCircuitBreaker",
+                                "forward:/fallback/payment-service",
+                                circuitBreakerEnabled)
+                        )
+                        .uri(paymentServiceUrl)
                 )
 
                 .build();
