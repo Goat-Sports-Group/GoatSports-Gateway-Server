@@ -77,6 +77,7 @@ public class GatewaySecurityConfig {
 
                         // Workflow Service
                         .pathMatchers("/workflow-service/actuator/**").permitAll()
+                        .pathMatchers("/workflow-service/api/v1/workflows/public/**").permitAll()
                         .pathMatchers("/workflow-service/**").authenticated()
 
                         // Audit Service
