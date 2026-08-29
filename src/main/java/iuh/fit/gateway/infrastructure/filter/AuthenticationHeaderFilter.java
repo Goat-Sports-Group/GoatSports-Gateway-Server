@@ -24,6 +24,8 @@ import java.time.Duration;
 @Slf4j
 public class AuthenticationHeaderFilter implements GlobalFilter {
 
+    private static final String ROLE_PERMISSION_CACHE_PREFIX = "PERMISSION:ROLE:v2:";
+
     @Value("${app.jwt.secret}")
     private String gatewaySecret;
 
@@ -80,7 +82,7 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
 
     private Mono<UserAccess> fetchUserAccess(String userId, String fallBackRole) {
         String role = normalizeRole(fallBackRole);
-        String cacheKey = "PERMISSION:ROLE:" + role;
+        String cacheKey = ROLE_PERMISSION_CACHE_PREFIX + role;
 
         return redisTemplate.opsForValue().get(cacheKey)
                 .map(authorities -> {
@@ -106,7 +108,7 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
                                                     : String.join(",", response.data().permissions());
 
                                             String finalRole = loadedRole;
-                                            String finalCacheKey = "PERMISSION:ROLE:" + finalRole;
+                                            String finalCacheKey = ROLE_PERMISSION_CACHE_PREFIX + finalRole;
 
                                             return redisTemplate.opsForValue()
                                                     .set(finalCacheKey, authorities, Duration.ofMinutes(15))

@@ -59,6 +59,11 @@ public class GatewaySecurityConfig {
                         // Venue service
                         .pathMatchers("/venue-service/actuator/**").permitAll()
                         .pathMatchers("/venue-service/internal/**").denyAll()
+                        .pathMatchers(
+                                HttpMethod.GET,
+                                "/venue-service/api/v1/venues/**",
+                                "/venue-service/api/v1/venue-courts/**"
+                        ).permitAll()
                         .pathMatchers("/venue-service/**").authenticated()
 
                         // Notification service
