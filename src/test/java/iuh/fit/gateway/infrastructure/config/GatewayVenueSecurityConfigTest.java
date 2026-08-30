@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @WebFluxTest(
@@ -53,6 +54,12 @@ class GatewayVenueSecurityConfigTest {
         webTestClient.get().uri("/venue-service/api/v1/owner/bookings")
                 .exchange()
                 .expectStatus().isUnauthorized();
+        webTestClient.post().uri("/venue-service/api/v1/owner/check-ins/lookup")
+                .exchange()
+                .expectStatus().isUnauthorized();
+        webTestClient.get().uri("/venue-service/api/v1/owner/check-ins")
+                .exchange()
+                .expectStatus().isUnauthorized();
     }
 
     @RestController
@@ -64,9 +71,14 @@ class GatewayVenueSecurityConfigTest {
                 "/venue-service/api/v1/owner/venues",
                 "/venue-service/api/v1/owner/venue-courts/{courtId}/pricing-rules",
                 "/venue-service/api/v1/owner/bookings",
+                "/venue-service/api/v1/owner/check-ins",
                 "/venue-service/api/v1/admin/venues"
         })
         @ResponseStatus(HttpStatus.NO_CONTENT)
         void probe() {}
+
+        @PostMapping("/venue-service/api/v1/owner/check-ins/lookup")
+        @ResponseStatus(HttpStatus.NO_CONTENT)
+        void checkInProbe() {}
     }
 }
