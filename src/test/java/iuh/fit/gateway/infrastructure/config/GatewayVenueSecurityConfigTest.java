@@ -47,6 +47,12 @@ class GatewayVenueSecurityConfigTest {
         webTestClient.get().uri("/venue-service/api/v1/admin/venues")
                 .exchange()
                 .expectStatus().isUnauthorized();
+        webTestClient.get().uri("/venue-service/api/v1/owner/venue-courts/court-id/pricing-rules")
+                .exchange()
+                .expectStatus().isUnauthorized();
+        webTestClient.get().uri("/venue-service/api/v1/owner/bookings")
+                .exchange()
+                .expectStatus().isUnauthorized();
     }
 
     @RestController
@@ -56,6 +62,8 @@ class GatewayVenueSecurityConfigTest {
                 "/venue-service/api/v1/venues/{venueId}/courts",
                 "/venue-service/api/v1/venue-courts/{courtId}",
                 "/venue-service/api/v1/owner/venues",
+                "/venue-service/api/v1/owner/venue-courts/{courtId}/pricing-rules",
+                "/venue-service/api/v1/owner/bookings",
                 "/venue-service/api/v1/admin/venues"
         })
         @ResponseStatus(HttpStatus.NO_CONTENT)
