@@ -65,6 +65,12 @@ class GatewayVenueSecurityConfigTest {
                 )
                 .exchange()
                 .expectStatus().isUnauthorized();
+        webTestClient.get().uri("/venue-service/api/v1/owner/reviews")
+                .exchange()
+                .expectStatus().isUnauthorized();
+        webTestClient.post().uri("/venue-service/api/v1/player/reviews")
+                .exchange()
+                .expectStatus().isUnauthorized();
     }
 
     @RestController
@@ -78,12 +84,16 @@ class GatewayVenueSecurityConfigTest {
                 "/venue-service/api/v1/owner/bookings",
                 "/venue-service/api/v1/owner/check-ins",
                 "/venue-service/api/v1/owner/revenue",
+                "/venue-service/api/v1/owner/reviews",
                 "/venue-service/api/v1/admin/venues"
         })
         @ResponseStatus(HttpStatus.NO_CONTENT)
         void probe() {}
 
-        @PostMapping("/venue-service/api/v1/owner/check-ins/lookup")
+        @PostMapping({
+                "/venue-service/api/v1/owner/check-ins/lookup",
+                "/venue-service/api/v1/player/reviews"
+        })
         @ResponseStatus(HttpStatus.NO_CONTENT)
         void checkInProbe() {}
     }
