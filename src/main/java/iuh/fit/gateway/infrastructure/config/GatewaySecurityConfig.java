@@ -91,10 +91,6 @@ public class GatewaySecurityConfig {
                         // Payment service
                         .pathMatchers("/payment-service/actuator/**").permitAll()
                         .pathMatchers("/payment-service/internal/**").denyAll()
-                        .pathMatchers(
-                                HttpMethod.POST,
-                                "/payment-service/api/v1/payments/providers/momo/webhook"
-                        ).permitAll()
                         .pathMatchers("/payment-service/**").authenticated()
 
                         .anyExchange().authenticated())
