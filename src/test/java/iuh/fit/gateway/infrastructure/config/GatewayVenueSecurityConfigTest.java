@@ -41,6 +41,14 @@ class GatewayVenueSecurityConfigTest {
     }
 
     @Test
+    void payOsWebhookDoesNotRequireLogin() {
+        webTestClient.post()
+                .uri("/payment-service/api/v1/payments/providers/payos/webhook")
+                .exchange()
+                .expectStatus().isNoContent();
+    }
+
+    @Test
     void ownerAndAdminVenueReadsRequireLogin() {
         webTestClient.get().uri("/venue-service/api/v1/owner/venues")
                 .exchange()
@@ -92,7 +100,8 @@ class GatewayVenueSecurityConfigTest {
 
         @PostMapping({
                 "/venue-service/api/v1/owner/check-ins/lookup",
-                "/venue-service/api/v1/player/reviews"
+                "/venue-service/api/v1/player/reviews",
+                "/payment-service/api/v1/payments/providers/payos/webhook"
         })
         @ResponseStatus(HttpStatus.NO_CONTENT)
         void checkInProbe() {}

@@ -90,6 +90,10 @@ public class GatewaySecurityConfig {
 
                         // Payment service
                         .pathMatchers("/payment-service/actuator/**").permitAll()
+                        .pathMatchers(
+                                HttpMethod.POST,
+                                "/payment-service/api/v1/payments/providers/payos/webhook"
+                        ).permitAll()
                         .pathMatchers("/payment-service/internal/**").denyAll()
                         .pathMatchers("/payment-service/**").authenticated()
 
