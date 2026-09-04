@@ -22,6 +22,13 @@ public class RedisTokenBlacklistFilter implements GlobalFilter {
     private final ReactiveStringRedisTemplate redisTemplate;
 
     private static final List<String> WHITE_LIST = List.of(
+            "/auth-service/api/v1/auth/login",
+            "/auth-service/api/v1/auth/logout",
+            "/auth-service/api/v1/auth/register",
+            "/auth-service/api/v1/auth/refresh",
+            "/auth-service/api/v1/auth/forgot-password",
+            "/auth-service/api/v1/auth/verify",
+            "/auth-service/api/v1/auth/resend",
             "/api/v1/auth/login",
             "/api/v1/auth/logout",
             "/api/v1/auth/register",
