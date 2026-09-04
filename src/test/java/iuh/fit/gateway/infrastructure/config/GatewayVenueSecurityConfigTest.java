@@ -15,11 +15,13 @@ import org.springframework.web.bind.annotation.RestController;
         controllers = GatewayVenueSecurityConfigTest.ProbeController.class,
         properties = {
                 "app.jwt.secret=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY=",
+                "security.cors.allowed-origins=http://localhost:4300",
                 "server.port=0",
                 "spring.http.codecs.max-in-memory-size=1MB"
         }
 )
 @ContextConfiguration(classes = {
+        CorsConfig.class,
         GatewaySecurityConfig.class,
         GatewayVenueSecurityConfigTest.ProbeController.class
 })
@@ -79,6 +81,20 @@ class GatewayVenueSecurityConfigTest {
         webTestClient.post().uri("/venue-service/api/v1/player/reviews")
                 .exchange()
                 .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void unauthorizedResponseKeepsCorsHeadersForTokenRefreshHandling() {
+        webTestClient.mutate()
+                .baseUrl("http://localhost:7070")
+                .build()
+                .get()
+                .uri("/venue-service/api/v1/owner/venues")
+                .header("Origin", "http://localhost:4300")
+                .exchange()
+                .expectStatus().isUnauthorized()
+                .expectHeader().valueEquals("Access-Control-Allow-Origin", "http://localhost:4300")
+                .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true");
     }
 
     @RestController
