@@ -84,6 +84,38 @@ class GatewayVenueSecurityConfigTest {
     }
 
     @Test
+    void publicClubTournamentAndAiCatalogReadsDoNotRequireLogin() {
+        webTestClient.get().uri("/club-service/api/v1/clubs/search")
+                .exchange()
+                .expectStatus().isNoContent();
+        webTestClient.get().uri("/club-service/api/v1/tournaments/search")
+                .exchange()
+                .expectStatus().isNoContent();
+        webTestClient.get().uri("/ai-service/api/v1/ai/recommendations/venues")
+                .exchange()
+                .expectStatus().isNoContent();
+        webTestClient.post().uri("/ai-service/api/v1/ai/chatbot/query")
+                .exchange()
+                .expectStatus().isNoContent();
+    }
+
+    @Test
+    void clubMutationsSocialAndMatchmakingRequireLogin() {
+        webTestClient.post().uri("/club-service/api/v1/clubs")
+                .exchange()
+                .expectStatus().isUnauthorized();
+        webTestClient.get().uri("/social-service/api/v1/social/friends")
+                .exchange()
+                .expectStatus().isUnauthorized();
+        webTestClient.get().uri("/social-service/ws")
+                .exchange()
+                .expectStatus().isUnauthorized();
+        webTestClient.post().uri("/ai-service/api/v1/ai/matchmaking/queue")
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
     void unauthorizedResponseKeepsCorsHeadersForTokenRefreshHandling() {
         webTestClient.mutate()
                 .baseUrl("http://localhost:7070")
@@ -109,7 +141,12 @@ class GatewayVenueSecurityConfigTest {
                 "/venue-service/api/v1/owner/check-ins",
                 "/venue-service/api/v1/owner/revenue",
                 "/venue-service/api/v1/owner/reviews",
-                "/venue-service/api/v1/admin/venues"
+                "/venue-service/api/v1/admin/venues",
+                "/club-service/api/v1/clubs/search",
+                "/club-service/api/v1/tournaments/search",
+                "/ai-service/api/v1/ai/recommendations/venues",
+                "/social-service/api/v1/social/friends",
+                "/social-service/ws"
         })
         @ResponseStatus(HttpStatus.NO_CONTENT)
         void probe() {}
@@ -117,7 +154,10 @@ class GatewayVenueSecurityConfigTest {
         @PostMapping({
                 "/venue-service/api/v1/owner/check-ins/lookup",
                 "/venue-service/api/v1/player/reviews",
-                "/payment-service/api/v1/payments/providers/payos/webhook"
+                "/payment-service/api/v1/payments/providers/payos/webhook",
+                "/club-service/api/v1/clubs",
+                "/ai-service/api/v1/ai/chatbot/query",
+                "/ai-service/api/v1/ai/matchmaking/queue"
         })
         @ResponseStatus(HttpStatus.NO_CONTENT)
         void checkInProbe() {}

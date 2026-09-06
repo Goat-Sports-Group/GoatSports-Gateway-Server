@@ -38,6 +38,14 @@ public class GatewayApplication {
     private String auditServiceUrl;
     @Value("${payment.service.url}")
     private String paymentServiceUrl;
+    @Value("${club.service.url}")
+    private String clubServiceUrl;
+    @Value("${social.service.url}")
+    private String socialServiceUrl;
+    @Value("${social.service.ws-url}")
+    private String socialServiceWsUrl;
+    @Value("${ai.service.url}")
+    private String aiServiceUrl;
 
     public static void main(String[] args) {
         SpringApplication.run(GatewayApplication.class, args);
@@ -173,6 +181,61 @@ public class GatewayApplication {
                                 circuitBreakerEnabled)
                         )
                         .uri(paymentServiceUrl)
+                )
+
+                // Club and Tournament Service
+                .route("club-service-route", r -> r
+                        .path("/club-service/**")
+                        .filters(f -> commonFilters(
+                                f,
+                                defaultRateLimiter,
+                                ipKeyResolver,
+                                "/club-service",
+                                "clubServiceCircuitBreaker",
+                                "forward:/fallback/club-service",
+                                circuitBreakerEnabled)
+                        )
+                        .uri(clubServiceUrl)
+                )
+
+                // Social Service WebSocket must use a ws:// upstream URI.
+                .route("social-service-websocket-route", r -> r
+                        .path("/social-service/ws/**")
+                        .filters(f -> f.rewritePath(
+                                "/social-service/(?<segment>.*)",
+                                "/${segment}"
+                        ))
+                        .uri(socialServiceWsUrl)
+                )
+
+                // Social Service REST API
+                .route("social-service-route", r -> r
+                        .path("/social-service/**")
+                        .filters(f -> commonFilters(
+                                f,
+                                defaultRateLimiter,
+                                ipKeyResolver,
+                                "/social-service",
+                                "socialServiceCircuitBreaker",
+                                "forward:/fallback/social-service",
+                                circuitBreakerEnabled)
+                        )
+                        .uri(socialServiceUrl)
+                )
+
+                // AI Service
+                .route("ai-service-route", r -> r
+                        .path("/ai-service/**")
+                        .filters(f -> commonFilters(
+                                f,
+                                defaultRateLimiter,
+                                ipKeyResolver,
+                                "/ai-service",
+                                "aiServiceCircuitBreaker",
+                                "forward:/fallback/ai-service",
+                                circuitBreakerEnabled)
+                        )
+                        .uri(aiServiceUrl)
                 )
 
                 .build();

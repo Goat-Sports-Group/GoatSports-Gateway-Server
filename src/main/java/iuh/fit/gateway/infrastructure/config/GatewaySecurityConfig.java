@@ -102,6 +102,33 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/payment-service/internal/**").denyAll()
                         .pathMatchers("/payment-service/**").authenticated()
 
+                        // Club service
+                        .pathMatchers("/club-service/actuator/**").permitAll()
+                        .pathMatchers("/club-service/internal/**").denyAll()
+                        .pathMatchers(
+                                HttpMethod.GET,
+                                "/club-service/api/v1/clubs/**",
+                                "/club-service/api/v1/tournaments/**"
+                        ).permitAll()
+                        .pathMatchers("/club-service/**").authenticated()
+
+                        // Social service
+                        .pathMatchers("/social-service/actuator/**").permitAll()
+                        .pathMatchers("/social-service/internal/**").denyAll()
+                        .pathMatchers("/social-service/**").authenticated()
+
+                        // AI service
+                        .pathMatchers("/ai-service/health").permitAll()
+                        .pathMatchers(
+                                HttpMethod.GET,
+                                "/ai-service/api/v1/ai/recommendations/**"
+                        ).permitAll()
+                        .pathMatchers(
+                                HttpMethod.POST,
+                                "/ai-service/api/v1/ai/chatbot/query"
+                        ).permitAll()
+                        .pathMatchers("/ai-service/**").authenticated()
+
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .bearerTokenConverter(cookieBearerTokenConverter())
