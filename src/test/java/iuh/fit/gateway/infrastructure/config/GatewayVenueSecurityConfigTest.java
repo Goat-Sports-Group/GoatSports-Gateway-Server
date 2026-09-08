@@ -51,6 +51,22 @@ class GatewayVenueSecurityConfigTest {
     }
 
     @Test
+    void publicStorageFileUrlDoesNotRequireLogin() {
+        webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/storage-service/api/v1/files")
+                        .queryParam("key", "venues/example.png")
+                        .build())
+                .exchange()
+                .expectStatus().isNoContent();
+
+        webTestClient.post()
+                .uri("/storage-service/api/v1/files")
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
     void ownerAndAdminVenueReadsRequireLogin() {
         webTestClient.get().uri("/venue-service/api/v1/owner/venues")
                 .exchange()
@@ -145,6 +161,7 @@ class GatewayVenueSecurityConfigTest {
                 "/club-service/api/v1/clubs/search",
                 "/club-service/api/v1/tournaments/search",
                 "/ai-service/api/v1/ai/recommendations/venues",
+                "/storage-service/api/v1/files",
                 "/social-service/api/v1/social/friends",
                 "/social-service/ws"
         })

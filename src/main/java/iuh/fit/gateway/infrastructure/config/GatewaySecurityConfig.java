@@ -83,6 +83,7 @@ public class GatewaySecurityConfig {
                         // Storage Service
                         .pathMatchers("/storage-service/actuator/**").permitAll()
                         .pathMatchers("/storage-service/internal/**").denyAll()
+                        .pathMatchers(HttpMethod.GET, "/storage-service/api/v1/files").permitAll()
                         .pathMatchers("/storage-service/**").authenticated()
 
                         // Workflow Service
