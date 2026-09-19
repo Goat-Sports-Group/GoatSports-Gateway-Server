@@ -1,0 +1,18 @@
+package iuh.fit.gateway.infrastructure.config;
+
+import feign.RequestInterceptor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+
+/**
+ * Gắn service identity cho lời gọi tới auth-service `/internal/**`.
+ * Không forward header người dùng: đây là lời gọi service-to-service.
+ */
+public class AuthClientConfig {
+    @Bean
+    RequestInterceptor authServiceSecurityInterceptor(
+            @Value("${app.jwt.secret}") String gatewaySecret
+    ) {
+        return template -> template.header("X-Gateway-Secret", gatewaySecret);
+    }
+}
