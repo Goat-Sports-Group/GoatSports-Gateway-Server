@@ -11,6 +11,7 @@ import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.core.Ordered;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -22,7 +23,7 @@ import java.time.Duration;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class AuthenticationHeaderFilter implements GlobalFilter {
+public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
 
     private static final String ROLE_PERMISSION_CACHE_PREFIX = "PERMISSION:ROLE:v2:";
 
@@ -31,6 +32,11 @@ public class AuthenticationHeaderFilter implements GlobalFilter {
 
     private final ObjectProvider<AuthClient> userClient;
     private final ReactiveStringRedisTemplate redisTemplate;
+
+    @Override
+    public int getOrder() {
+        return Ordered.HIGHEST_PRECEDENCE + 100;
+    }
 
     private record UserAccess(
             String role,
