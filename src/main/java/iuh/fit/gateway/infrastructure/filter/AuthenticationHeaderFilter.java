@@ -50,9 +50,10 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
+        ServerWebExchange gatewayExchange = withGatewayHeaders(exchange, null, null);
+
         return exchange.getPrincipal()
-                .filter(principal -> principal instanceof JwtAuthenticationToken)
-                .cast(JwtAuthenticationToken.class)
+                .ofType(JwtAuthenticationToken.class)
                 .flatMap(jwtAuth -> {
                     String userId = jwtAuth.getToken().getSubject();
                     String email = jwtAuth.getToken().getClaimAsString("email");
@@ -60,30 +61,32 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
                     String jwtRole = jwtAuth.getToken().getClaimAsString("role");
 
                     return fetchUserAccess(userId, jwtRole)
-                            .flatMap(access -> {
-                                ServerHttpRequest request = exchange.getRequest()
-                                        .mutate()
-                                        .header("X-Gateway-Secret", gatewaySecret)
-                                        .header("X-User-Id", userId)
-                                        .header("X-User-Username", username == null ? "" : username)
-                                        .header("X-User-Email", email == null ? "" : email)
-                                        .header("X-User-Roles", access.role())
-                                        .header("X-User-Authorities", access.authorities())
-                                        .build();
-
-                                return chain.filter(
-                                        exchange.mutate().request(request).build());
-                            });
+                            .map(access -> withGatewayHeaders(exchange, jwtAuth, access));
                 })
-                .switchIfEmpty(
-                        chain.filter(
-                                exchange.mutate()
-                                        .request(
-                                                exchange.getRequest()
-                                                        .mutate()
-                                                        .header("X-Gateway-Secret", gatewaySecret)
-                                                        .build())
-                                        .build()));
+                .defaultIfEmpty(gatewayExchange)
+                .flatMap(chain::filter);
+    }
+
+    private ServerWebExchange withGatewayHeaders(
+            ServerWebExchange exchange,
+            JwtAuthenticationToken jwtAuth,
+            UserAccess access) {
+        ServerHttpRequest.Builder request = exchange.getRequest()
+                .mutate()
+                .header("X-Gateway-Secret", gatewaySecret);
+
+        if (jwtAuth != null && access != null) {
+            String userId = jwtAuth.getToken().getSubject();
+            String email = jwtAuth.getToken().getClaimAsString("email");
+            String username = jwtAuth.getToken().getClaimAsString("username");
+            request.header("X-User-Id", userId)
+                    .header("X-User-Username", username == null ? "" : username)
+                    .header("X-User-Email", email == null ? "" : email)
+                    .header("X-User-Roles", access.role())
+                    .header("X-User-Authorities", access.authorities());
+        }
+
+        return exchange.mutate().request(request.build()).build();
     }
 
     private Mono<UserAccess> fetchUserAccess(String userId, String fallBackRole) {
