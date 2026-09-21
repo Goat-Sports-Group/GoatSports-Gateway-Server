@@ -28,6 +28,8 @@ public class GatewayApplication {
     private String venueServiceUrl;
     @Value("${notification.service.url}")
     private String notificationServiceUrl;
+    @Value("${notification.service.ws-url}")
+    private String notificationServiceWsUrl;
     @Value("${report.service.url}")
     private String reportServiceUrl;
     @Value("${storage.service.url}")
@@ -93,7 +95,15 @@ public class GatewayApplication {
                         .uri(venueServiceUrl)
                 )
 
-                // Notification Service
+                .route("notification-service-websocket-route", r -> r
+                        .path("/notification-service/ws", "/notification-service/ws/**")
+                        .filters(f -> f.rewritePath(
+                                "/notification-service/(?<segment>.*)",
+                                "/${segment}"
+                        ))
+                        .uri(notificationServiceWsUrl)
+                )
+
                 .route("notification-service-route", r -> r
                         .path("/notification-service/**")
                         .filters(f -> commonFilters(
