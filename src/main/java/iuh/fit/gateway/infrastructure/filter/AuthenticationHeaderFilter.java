@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -26,6 +27,9 @@ import java.time.Duration;
 public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
 
     private static final String ROLE_PERMISSION_CACHE_PREFIX = "PERMISSION:ROLE:v2:";
+    /** Danh tính người dùng chỉ gateway được phép đặt (các service đọc chúng trong JwtFilter/GatewayAuthenticationFilter). */
+    private static final List<String> IDENTITY_HEADERS = List.of(
+            "X-User-Id", "X-User-Username", "X-User-Email", "X-User-Roles", "X-User-Authorities");
 
     @Value("${app.jwt.secret}")
     private String gatewaySecret;
@@ -71,8 +75,12 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
             ServerWebExchange exchange,
             JwtAuthenticationToken jwtAuth,
             UserAccess access) {
+        // BẢO MẬT: các service phía sau tin X-User-* khi request mang X-Gateway-Secret. Luôn xóa bản do client tự gửi,
+        // rồi chỉ đặt lại từ JWT đã xác thực — nếu không, request ẩn danh vào đường dẫn công khai (vd GET /auth/me)
+        // chỉ cần tự gắn X-User-Id / X-User-Roles là mạo danh được bất kỳ ai.
         ServerHttpRequest.Builder request = exchange.getRequest()
                 .mutate()
+                .headers(headers -> IDENTITY_HEADERS.forEach(headers::remove))
                 .header("X-Gateway-Secret", gatewaySecret);
 
         if (jwtAuth != null && access != null) {
