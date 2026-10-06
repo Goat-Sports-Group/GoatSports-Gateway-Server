@@ -59,6 +59,7 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/auth-service/api/v1/auth/**").permitAll()
                         .pathMatchers("/auth-service/internal/**").denyAll()
                         .pathMatchers("/auth-service/callback/**").permitAll()
+                        .pathMatchers(HttpMethod.POST, "/auth-service/api/v1/support/requests").permitAll()
                         .pathMatchers("/auth-service/**").authenticated()
 
                         // Venue service
