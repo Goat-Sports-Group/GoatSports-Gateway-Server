@@ -51,7 +51,9 @@ public class GatewaySecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .pathMatchers("/actuator/prometheus", "/*/actuator/prometheus").denyAll()
+                        // Metrics cua service phia sau: Prometheus scrape truc tiep trong goatsports-network, khong qua gateway.
+                        // Actuator cua chinh gateway nam o management port rieng (7090), cong 7070 khong co /actuator.
+                        .pathMatchers("/*/actuator/prometheus").denyAll()
                         .pathMatchers("/actuator/**").permitAll()
                         .pathMatchers("/fallback/**").permitAll()
 

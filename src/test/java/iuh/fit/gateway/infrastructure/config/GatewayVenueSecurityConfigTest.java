@@ -132,10 +132,7 @@ class GatewayVenueSecurityConfigTest {
     }
 
     @Test
-    void prometheusMetricsAreNotReachableThroughTheGateway() {
-        webTestClient.get().uri("/actuator/prometheus")
-                .exchange()
-                .expectStatus().is4xxClientError();
+    void downstreamPrometheusMetricsAreNotReachableThroughTheGateway() {
         webTestClient.get().uri("/auth-service/actuator/prometheus")
                 .exchange()
                 .expectStatus().is4xxClientError();
@@ -177,7 +174,6 @@ class GatewayVenueSecurityConfigTest {
                 "/storage-service/api/v1/files",
                 "/social-service/api/v1/social/friends",
                 "/social-service/ws",
-                "/actuator/prometheus",
                 "/auth-service/actuator/prometheus",
                 "/auth-service/actuator/health"
         })
