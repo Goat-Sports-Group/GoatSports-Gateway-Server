@@ -132,6 +132,19 @@ class GatewayVenueSecurityConfigTest {
     }
 
     @Test
+    void prometheusMetricsAreNotReachableThroughTheGateway() {
+        webTestClient.get().uri("/actuator/prometheus")
+                .exchange()
+                .expectStatus().is4xxClientError();
+        webTestClient.get().uri("/auth-service/actuator/prometheus")
+                .exchange()
+                .expectStatus().is4xxClientError();
+        webTestClient.get().uri("/auth-service/actuator/health")
+                .exchange()
+                .expectStatus().isNoContent();
+    }
+
+    @Test
     void unauthorizedResponseKeepsCorsHeadersForTokenRefreshHandling() {
         webTestClient.mutate()
                 .baseUrl("http://localhost:7070")
@@ -163,7 +176,10 @@ class GatewayVenueSecurityConfigTest {
                 "/ai-service/api/v1/ai/recommendations/venues",
                 "/storage-service/api/v1/files",
                 "/social-service/api/v1/social/friends",
-                "/social-service/ws"
+                "/social-service/ws",
+                "/actuator/prometheus",
+                "/auth-service/actuator/prometheus",
+                "/auth-service/actuator/health"
         })
         @ResponseStatus(HttpStatus.NO_CONTENT)
         void probe() {}
