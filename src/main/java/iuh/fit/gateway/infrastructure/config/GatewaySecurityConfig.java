@@ -125,6 +125,7 @@ public class GatewaySecurityConfig {
                         // AI service
                         .pathMatchers("/ai-service/health").permitAll()
                         .pathMatchers("/ai-service/api/v1/ai/moderation/**").denyAll()
+                        .pathMatchers("/ai-service/api/v1/ai/chatbot/knowledge/**", "/ai-service/api/v1/ai/chatbot/knowledge").denyAll()
                         .pathMatchers("/ai-service/api/v1/ai/matchmaking/sessions/*/lifecycle-sync").denyAll()
                         .pathMatchers(
                                 HttpMethod.GET,
