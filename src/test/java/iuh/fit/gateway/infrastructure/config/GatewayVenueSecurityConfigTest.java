@@ -1,5 +1,10 @@
 package iuh.fit.gateway.infrastructure.config;
 
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.MACSigner;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webflux.test.autoconfigure.WebFluxTest;
@@ -11,10 +16,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Base64;
+import java.util.Date;
+
 @WebFluxTest(
         controllers = GatewayVenueSecurityConfigTest.ProbeController.class,
         properties = {
-                "app.jwt.secret=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY=",
+                "app.jwt.secret=" + GatewayVenueSecurityConfigTest.JWT_SECRET,
                 "security.cors.allowed-origins=http://localhost:4300",
                 "server.port=0",
                 "spring.http.codecs.max-in-memory-size=1MB"
@@ -26,6 +34,8 @@ import org.springframework.web.bind.annotation.RestController;
         GatewayVenueSecurityConfigTest.ProbeController.class
 })
 class GatewayVenueSecurityConfigTest {
+    static final String JWT_SECRET = "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY=";
+
     @Autowired
     private WebTestClient webTestClient;
 
@@ -131,6 +141,36 @@ class GatewayVenueSecurityConfigTest {
                 .expectStatus().isUnauthorized();
     }
 
+    /** Endpoint nội bộ của ai-service: chỉ service gọi thẳng; qua gateway thì kể cả người đã đăng nhập cũng bị chặn. */
+    @Test
+    void aiServiceInternalEndpointsAreDeniedEvenWithAValidLogin() throws Exception {
+        // Gateway chỉ đọc token từ cookie accessToken.
+        String token = signedToken();
+        webTestClient.post().uri("/ai-service/api/v1/ai/moderation/classify")
+                .cookie("accessToken", token)
+                .exchange()
+                .expectStatus().isForbidden();
+        webTestClient.post().uri("/ai-service/api/v1/ai/matchmaking/sessions/session-id/lifecycle-sync")
+                .cookie("accessToken", token)
+                .exchange()
+                .expectStatus().isForbidden();
+        webTestClient.post().uri("/ai-service/api/v1/ai/matchmaking/queue")
+                .cookie("accessToken", token)
+                .exchange()
+                .expectStatus().isNoContent();
+    }
+
+    private static String signedToken() throws Exception {
+        SignedJWT jwt = new SignedJWT(
+                new JWSHeader(JWSAlgorithm.HS256),
+                new JWTClaimsSet.Builder()
+                        .subject("player@example.com")
+                        .expirationTime(new Date(System.currentTimeMillis() + 60_000))
+                        .build());
+        jwt.sign(new MACSigner(Base64.getDecoder().decode(JWT_SECRET)));
+        return jwt.serialize();
+    }
+
     @Test
     void downstreamPrometheusMetricsAreNotReachableThroughTheGateway() {
         webTestClient.get().uri("/auth-service/actuator/prometheus")
@@ -186,7 +226,9 @@ class GatewayVenueSecurityConfigTest {
                 "/payment-service/api/v1/payments/providers/payos/webhook",
                 "/club-service/api/v1/clubs",
                 "/ai-service/api/v1/ai/chatbot/query",
-                "/ai-service/api/v1/ai/matchmaking/queue"
+                "/ai-service/api/v1/ai/matchmaking/queue",
+                "/ai-service/api/v1/ai/moderation/classify",
+                "/ai-service/api/v1/ai/matchmaking/sessions/{sessionId}/lifecycle-sync"
         })
         @ResponseStatus(HttpStatus.NO_CONTENT)
         void checkInProbe() {}
