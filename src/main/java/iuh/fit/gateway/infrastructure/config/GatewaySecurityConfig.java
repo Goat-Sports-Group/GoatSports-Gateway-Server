@@ -134,7 +134,8 @@ public class GatewaySecurityConfig {
                         ).permitAll()
                         .pathMatchers(
                                 HttpMethod.POST,
-                                "/ai-service/api/v1/ai/chatbot/query"
+                                "/ai-service/api/v1/ai/chatbot/query",
+                                "/ai-service/api/v1/ai/chatbot/feedback"
                         ).permitAll()
                         .pathMatchers("/ai-service/**").authenticated()
 

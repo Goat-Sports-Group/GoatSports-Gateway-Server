@@ -123,6 +123,13 @@ class GatewayVenueSecurityConfigTest {
         webTestClient.post().uri("/ai-service/api/v1/ai/chatbot/query")
                 .exchange()
                 .expectStatus().isNoContent();
+        webTestClient.post().uri("/ai-service/api/v1/ai/chatbot/feedback")
+                .exchange()
+                .expectStatus().isNoContent();
+        // Trang quản trị kiến thức trợ lý: khách không vào được (ai-service còn kiểm role ADMIN).
+        webTestClient.get().uri("/ai-service/api/v1/ai/assistant-admin/gaps")
+                .exchange()
+                .expectStatus().isUnauthorized();
     }
 
     @Test
@@ -234,6 +241,7 @@ class GatewayVenueSecurityConfigTest {
                 "/payment-service/api/v1/payments/providers/payos/webhook",
                 "/club-service/api/v1/clubs",
                 "/ai-service/api/v1/ai/chatbot/query",
+                "/ai-service/api/v1/ai/chatbot/feedback",
                 "/ai-service/api/v1/ai/matchmaking/queue",
                 "/ai-service/api/v1/ai/moderation/classify",
                 "/ai-service/api/v1/ai/chatbot/knowledge",
