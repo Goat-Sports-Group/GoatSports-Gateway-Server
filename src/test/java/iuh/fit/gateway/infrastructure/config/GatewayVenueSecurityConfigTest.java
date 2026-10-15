@@ -158,6 +158,10 @@ class GatewayVenueSecurityConfigTest {
                 .cookie("accessToken", token)
                 .exchange()
                 .expectStatus().isForbidden();
+        webTestClient.post().uri("/ai-service/api/v1/ai/personalization/posts/rank")
+                .cookie("accessToken", token)
+                .exchange()
+                .expectStatus().isForbidden();
         webTestClient.post().uri("/ai-service/api/v1/ai/matchmaking/queue")
                 .cookie("accessToken", token)
                 .exchange()
@@ -233,7 +237,8 @@ class GatewayVenueSecurityConfigTest {
                 "/ai-service/api/v1/ai/matchmaking/queue",
                 "/ai-service/api/v1/ai/moderation/classify",
                 "/ai-service/api/v1/ai/chatbot/knowledge",
-                "/ai-service/api/v1/ai/matchmaking/sessions/{sessionId}/lifecycle-sync"
+                "/ai-service/api/v1/ai/matchmaking/sessions/{sessionId}/lifecycle-sync",
+                "/ai-service/api/v1/ai/personalization/posts/rank"
         })
         @ResponseStatus(HttpStatus.NO_CONTENT)
         void checkInProbe() {}
