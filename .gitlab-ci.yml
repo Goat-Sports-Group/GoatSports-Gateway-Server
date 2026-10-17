@@ -1,0 +1,4 @@
+include:
+  - project: 'goatsports1/backend/ci-templates'
+    ref: main
+    file: '/java-maven-jib.yml'
