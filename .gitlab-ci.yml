@@ -9,3 +9,8 @@ include:
 variables:
   JENKINS_JOB_NAME: "GoatSports-CD"
   JENKINS_SERVICE_NAME: "gateway-server"
+
+stages:
+  - test
+  - build
+  - deploy
