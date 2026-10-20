@@ -91,6 +91,7 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/storage-service/**").authenticated()
 
                         // Workflow Service
+                        .pathMatchers("/workflow-service/internal/**").denyAll()
                         .pathMatchers("/workflow-service/actuator/**").permitAll()
                         .pathMatchers("/workflow-service/**").authenticated()
 
