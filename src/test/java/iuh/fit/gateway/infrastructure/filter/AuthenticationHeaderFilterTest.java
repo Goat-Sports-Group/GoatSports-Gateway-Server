@@ -6,15 +6,23 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.core.Ordered;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveValueOperations;
+import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.http.server.reactive.MockServerHttpResponse;
 import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class AuthenticationHeaderFilterTest {
 
@@ -87,5 +95,42 @@ class AuthenticationHeaderFilterTest {
         };
 
         filter.filter(exchange, chain).block();
+    }
+
+    /** Admin khóa tài khoản → access token còn hạn của người đó bị chặn ngay, trừ refresh (để auth-service xóa cookie). */
+    @Test
+    void rejectsLiveTokensOfABlockedAccountButLetsRefreshThrough() {
+        String userId = "00000000-0000-0000-0000-0000000000b1";
+        ReactiveStringRedisTemplate redis = mock(ReactiveStringRedisTemplate.class);
+        @SuppressWarnings("unchecked")
+        ReactiveValueOperations<String, String> values = mock(ReactiveValueOperations.class);
+        when(redis.hasKey("blocked_user:" + userId)).thenReturn(Mono.just(true));
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.get(anyString())).thenReturn(Mono.just("VIEW_VENUES"));
+        @SuppressWarnings("unchecked")
+        ObjectProvider<AuthClient> authClient = mock(ObjectProvider.class);
+        AuthenticationHeaderFilter filter = new AuthenticationHeaderFilter(authClient, redis);
+        ReflectionTestUtils.setField(filter, "gatewaySecret", "test-secret");
+        AtomicInteger invocations = new AtomicInteger();
+        GatewayFilterChain chain = filtered -> {
+            invocations.incrementAndGet();
+            return Mono.empty();
+        };
+
+        ServerWebExchange blocked = authenticated("/venue-service/api/v1/venues", userId);
+        filter.filter(blocked, chain).block();
+        MockServerHttpResponse response = (MockServerHttpResponse) blocked.getResponse();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBodyAsString().block()).contains("ACCOUNT_BLOCKED");
+        assertThat(invocations).hasValue(0);
+
+        filter.filter(authenticated("/auth-service/api/v1/auth/refresh", userId), chain).block();
+        assertThat(invocations).hasValue(1);
+    }
+
+    private static ServerWebExchange authenticated(String path, String userId) {
+        Jwt jwt = Jwt.withTokenValue("token").header("alg", "none").subject(userId).claim("role", "PLAYER").build();
+        return MockServerWebExchange.from(MockServerHttpRequest.get(path).build())
+                .mutate().principal(Mono.just(new JwtAuthenticationToken(jwt))).build();
     }
 }

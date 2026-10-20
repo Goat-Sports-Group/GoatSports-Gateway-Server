@@ -10,6 +10,8 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.core.Ordered;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -18,8 +20,10 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -30,6 +34,8 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
     /** Danh tính người dùng chỉ gateway được phép đặt (các service đọc chúng trong JwtFilter/GatewayAuthenticationFilter). */
     private static final List<String> IDENTITY_HEADERS = List.of(
             "X-User-Id", "X-User-Username", "X-User-Email", "X-User-Roles", "X-User-Authorities");
+    private static final String BLOCKED_USER_PREFIX = "blocked_user:";
+    private static final List<String> SESSION_PATHS = List.of("/api/v1/auth/refresh", "/api/v1/auth/logout");
 
     @Value("${app.jwt.secret}")
     private String gatewaySecret;
@@ -54,21 +60,39 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange);
         }
 
-        ServerWebExchange gatewayExchange = withGatewayHeaders(exchange, null, null);
-
         return exchange.getPrincipal()
                 .ofType(JwtAuthenticationToken.class)
-                .flatMap(jwtAuth -> {
-                    String userId = jwtAuth.getToken().getSubject();
-                    String email = jwtAuth.getToken().getClaimAsString("email");
-                    String username = jwtAuth.getToken().getClaimAsString("username");
-                    String jwtRole = jwtAuth.getToken().getClaimAsString("role");
+                .map(Optional::of)
+                .defaultIfEmpty(Optional.empty())
+                .flatMap(jwtAuth -> jwtAuth.isEmpty()
+                        ? chain.filter(withGatewayHeaders(exchange, null, null))
+                        : filterAuthenticated(exchange, chain, jwtAuth.get()));
+    }
 
-                    return fetchUserAccess(userId, jwtRole)
-                            .map(access -> withGatewayHeaders(exchange, jwtAuth, access));
-                })
-                .defaultIfEmpty(gatewayExchange)
-                .flatMap(chain::filter);
+    private Mono<Void> filterAuthenticated(
+            ServerWebExchange exchange, GatewayFilterChain chain, JwtAuthenticationToken jwtAuth) {
+        String userId = jwtAuth.getToken().getSubject();
+        String jwtRole = jwtAuth.getToken().getClaimAsString("role");
+        Mono<Void> forward = fetchUserAccess(userId, jwtRole)
+                .flatMap(access -> chain.filter(withGatewayHeaders(exchange, jwtAuth, access)));
+
+        // refresh/logout phải tới được auth-service: refresh thất bại thì auth-service xóa cookie phiên.
+        String path = exchange.getRequest().getPath().value();
+        if (SESSION_PATHS.stream().anyMatch(path::endsWith)) {
+            return forward;
+        }
+        return redisTemplate.hasKey(BLOCKED_USER_PREFIX + userId)
+                .flatMap(blocked -> Boolean.TRUE.equals(blocked) ? rejectBlocked(exchange) : forward);
+    }
+
+    /** Access token còn hạn của tài khoản vừa bị khóa: chặn ngay, client đọc mã ACCOUNT_BLOCKED để đăng xuất. */
+    private Mono<Void> rejectBlocked(ServerWebExchange exchange) {
+        var response = exchange.getResponse();
+        response.setStatusCode(HttpStatus.UNAUTHORIZED);
+        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        byte[] body = "{\"error\":\"ACCOUNT_BLOCKED\",\"message\":\"Tài khoản của bạn đã bị khóa.\"}"
+                .getBytes(StandardCharsets.UTF_8);
+        return response.writeWith(Mono.just(response.bufferFactory().wrap(body)));
     }
 
     private ServerWebExchange withGatewayHeaders(
