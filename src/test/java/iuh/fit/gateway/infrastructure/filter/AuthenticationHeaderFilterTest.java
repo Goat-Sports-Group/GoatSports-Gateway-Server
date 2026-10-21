@@ -128,6 +128,30 @@ class AuthenticationHeaderFilterTest {
         assertThat(invocations).hasValue(1);
     }
 
+    /** Người dùng vừa yêu cầu xóa tài khoản: phiên ở thiết bị khác bị chặn với mã riêng, không báo nhầm là bị khóa. */
+    @Test
+    void tellsPendingDeletionApartFromBlocked() {
+        String userId = "00000000-0000-0000-0000-0000000000d1";
+        ReactiveStringRedisTemplate redis = mock(ReactiveStringRedisTemplate.class);
+        @SuppressWarnings("unchecked")
+        ReactiveValueOperations<String, String> values = mock(ReactiveValueOperations.class);
+        when(redis.hasKey("blocked_user:" + userId)).thenReturn(Mono.just(true));
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.get(anyString())).thenReturn(Mono.just("VIEW_VENUES"));
+        when(values.get("blocked_user:" + userId)).thenReturn(Mono.just("deletion"));
+        @SuppressWarnings("unchecked")
+        ObjectProvider<AuthClient> authClient = mock(ObjectProvider.class);
+        AuthenticationHeaderFilter filter = new AuthenticationHeaderFilter(authClient, redis);
+        ReflectionTestUtils.setField(filter, "gatewaySecret", "test-secret");
+
+        ServerWebExchange exchange = authenticated("/venue-service/api/v1/venues", userId);
+        filter.filter(exchange, filtered -> Mono.empty()).block();
+
+        MockServerHttpResponse response = (MockServerHttpResponse) exchange.getResponse();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBodyAsString().block()).contains("ACCOUNT_DELETION_PENDING");
+    }
+
     private static ServerWebExchange authenticated(String path, String userId) {
         Jwt jwt = Jwt.withTokenValue("token").header("alg", "none").subject(userId).claim("role", "PLAYER").build();
         return MockServerWebExchange.from(MockServerHttpRequest.get(path).build())

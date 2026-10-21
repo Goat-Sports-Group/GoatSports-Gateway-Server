@@ -35,6 +35,7 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
     private static final List<String> IDENTITY_HEADERS = List.of(
             "X-User-Id", "X-User-Username", "X-User-Email", "X-User-Roles", "X-User-Authorities");
     private static final String BLOCKED_USER_PREFIX = "blocked_user:";
+    private static final String DELETION_PENDING = "deletion";
     private static final List<String> SESSION_PATHS = List.of("/api/v1/auth/refresh", "/api/v1/auth/logout");
 
     @Value("${app.jwt.secret}")
@@ -82,17 +83,26 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
             return forward;
         }
         return redisTemplate.hasKey(BLOCKED_USER_PREFIX + userId)
-                .flatMap(blocked -> Boolean.TRUE.equals(blocked) ? rejectBlocked(exchange) : forward);
+                .flatMap(blocked -> Boolean.TRUE.equals(blocked) ? rejectBlocked(exchange, userId) : forward);
     }
 
-    /** Access token còn hạn của tài khoản vừa bị khóa: chặn ngay, client đọc mã ACCOUNT_BLOCKED để đăng xuất. */
-    private Mono<Void> rejectBlocked(ServerWebExchange exchange) {
-        var response = exchange.getResponse();
-        response.setStatusCode(HttpStatus.UNAUTHORIZED);
-        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-        byte[] body = "{\"error\":\"ACCOUNT_BLOCKED\",\"message\":\"Tài khoản của bạn đã bị khóa.\"}"
-                .getBytes(StandardCharsets.UTF_8);
-        return response.writeWith(Mono.just(response.bufferFactory().wrap(body)));
+    /**
+     * Access token còn hạn của tài khoản vừa bị khóa hoặc vừa yêu cầu xóa: chặn ngay, client đọc mã lỗi để đăng xuất.
+     * auth-service ghi giá trị {@value #DELETION_PENDING} cho tài khoản chờ xóa, mọi giá trị khác là bị khóa.
+     */
+    private Mono<Void> rejectBlocked(ServerWebExchange exchange, String userId) {
+        return redisTemplate.opsForValue().get(BLOCKED_USER_PREFIX + userId)
+                .defaultIfEmpty("")
+                .flatMap(reason -> {
+                    var response = exchange.getResponse();
+                    response.setStatusCode(HttpStatus.UNAUTHORIZED);
+                    response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+                    String json = DELETION_PENDING.equals(reason)
+                            ? "{\"error\":\"ACCOUNT_DELETION_PENDING\",\"message\":\"Tài khoản đang chờ xóa.\"}"
+                            : "{\"error\":\"ACCOUNT_BLOCKED\",\"message\":\"Tài khoản của bạn đã bị khóa.\"}";
+                    byte[] body = json.getBytes(StandardCharsets.UTF_8);
+                    return response.writeWith(Mono.just(response.bufferFactory().wrap(body)));
+                });
     }
 
     private ServerWebExchange withGatewayHeaders(
