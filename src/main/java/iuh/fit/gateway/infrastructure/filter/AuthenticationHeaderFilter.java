@@ -36,6 +36,7 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
             "X-User-Id", "X-User-Username", "X-User-Email", "X-User-Roles", "X-User-Authorities");
     private static final String BLOCKED_USER_PREFIX = "blocked_user:";
     private static final String DELETION_PENDING = "deletion";
+    private static final String INACTIVE = "inactive";
     private static final List<String> SESSION_PATHS = List.of("/api/v1/auth/refresh", "/api/v1/auth/logout");
 
     @Value("${app.jwt.secret}")
@@ -88,7 +89,8 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
 
     /**
      * Access token còn hạn của tài khoản vừa bị khóa hoặc vừa yêu cầu xóa: chặn ngay, client đọc mã lỗi để đăng xuất.
-     * auth-service ghi giá trị {@value #DELETION_PENDING} cho tài khoản chờ xóa, mọi giá trị khác là bị khóa.
+     * auth-service ghi giá trị {@value #DELETION_PENDING} cho tài khoản chờ xóa, {@value #INACTIVE} cho tài khoản bị
+     * admin bỏ xác thực; mọi giá trị khác là bị khóa.
      */
     private Mono<Void> rejectBlocked(ServerWebExchange exchange, String userId) {
         return redisTemplate.opsForValue().get(BLOCKED_USER_PREFIX + userId)
@@ -97,9 +99,11 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
                     var response = exchange.getResponse();
                     response.setStatusCode(HttpStatus.UNAUTHORIZED);
                     response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-                    String json = DELETION_PENDING.equals(reason)
-                            ? "{\"error\":\"ACCOUNT_DELETION_PENDING\",\"message\":\"Tài khoản đang chờ xóa.\"}"
-                            : "{\"error\":\"ACCOUNT_BLOCKED\",\"message\":\"Tài khoản của bạn đã bị khóa.\"}";
+                    String json = switch (reason) {
+                        case DELETION_PENDING -> "{\"error\":\"ACCOUNT_DELETION_PENDING\",\"message\":\"Tài khoản đang chờ xóa.\"}";
+                        case INACTIVE -> "{\"error\":\"ACCOUNT_INACTIVE\",\"message\":\"Tài khoản cần được xác thực lại.\"}";
+                        default -> "{\"error\":\"ACCOUNT_BLOCKED\",\"message\":\"Tài khoản của bạn đã bị khóa.\"}";
+                    };
                     byte[] body = json.getBytes(StandardCharsets.UTF_8);
                     return response.writeWith(Mono.just(response.bufferFactory().wrap(body)));
                 });

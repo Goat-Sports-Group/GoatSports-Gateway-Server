@@ -152,6 +152,30 @@ class AuthenticationHeaderFilterTest {
         assertThat(response.getBodyAsString().block()).contains("ACCOUNT_DELETION_PENDING");
     }
 
+    /** Admin bỏ xác thực: phiên còn hạn bị chặn với mã riêng để client báo "cần xác thực lại", không phải "bị khóa". */
+    @Test
+    void tellsUnverifiedApartFromBlocked() {
+        String userId = "00000000-0000-0000-0000-0000000000e1";
+        ReactiveStringRedisTemplate redis = mock(ReactiveStringRedisTemplate.class);
+        @SuppressWarnings("unchecked")
+        ReactiveValueOperations<String, String> values = mock(ReactiveValueOperations.class);
+        when(redis.hasKey("blocked_user:" + userId)).thenReturn(Mono.just(true));
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.get(anyString())).thenReturn(Mono.just("VIEW_VENUES"));
+        when(values.get("blocked_user:" + userId)).thenReturn(Mono.just("inactive"));
+        @SuppressWarnings("unchecked")
+        ObjectProvider<AuthClient> authClient = mock(ObjectProvider.class);
+        AuthenticationHeaderFilter filter = new AuthenticationHeaderFilter(authClient, redis);
+        ReflectionTestUtils.setField(filter, "gatewaySecret", "test-secret");
+
+        ServerWebExchange exchange = authenticated("/venue-service/api/v1/venues", userId);
+        filter.filter(exchange, filtered -> Mono.empty()).block();
+
+        MockServerHttpResponse response = (MockServerHttpResponse) exchange.getResponse();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBodyAsString().block()).contains("ACCOUNT_INACTIVE");
+    }
+
     private static ServerWebExchange authenticated(String path, String userId) {
         Jwt jwt = Jwt.withTokenValue("token").header("alg", "none").subject(userId).claim("role", "PLAYER").build();
         return MockServerWebExchange.from(MockServerHttpRequest.get(path).build())
