@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.core.Ordered;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -96,7 +97,7 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
         return redisTemplate.opsForValue().get(BLOCKED_USER_PREFIX + userId)
                 .defaultIfEmpty("")
                 .flatMap(reason -> {
-                    var response = exchange.getResponse();
+                    ServerHttpResponse response = exchange.getResponse();
                     response.setStatusCode(HttpStatus.UNAUTHORIZED);
                     response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
                     String json = switch (reason) {

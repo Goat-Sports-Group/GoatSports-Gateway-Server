@@ -7,6 +7,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.core.Ordered;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.ReactiveValueOperations;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.http.server.reactive.MockServerHttpResponse;
@@ -84,7 +85,7 @@ class AuthenticationHeaderFilterTest {
                         .header("X-Gateway-Secret", "forged")
                         .build());
         GatewayFilterChain chain = filteredExchange -> {
-            var headers = filteredExchange.getRequest().getHeaders();
+            HttpHeaders headers = filteredExchange.getRequest().getHeaders();
             assertThat(headers.getFirst("X-User-Id")).isNull();
             assertThat(headers.getFirst("X-User-Email")).isNull();
             assertThat(headers.getFirst("X-User-Username")).isNull();
