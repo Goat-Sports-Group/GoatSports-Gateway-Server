@@ -18,6 +18,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -105,9 +107,9 @@ class AuthenticationHeaderFilterTest {
         ReactiveStringRedisTemplate redis = mock(ReactiveStringRedisTemplate.class);
         @SuppressWarnings("unchecked")
         ReactiveValueOperations<String, String> values = mock(ReactiveValueOperations.class);
-        when(redis.hasKey("blocked_user:" + userId)).thenReturn(Mono.just(true));
         when(redis.opsForValue()).thenReturn(values);
         when(values.get(anyString())).thenReturn(Mono.just("VIEW_VENUES"));
+        stateOf(values, userId, "1", null);
         @SuppressWarnings("unchecked")
         ObjectProvider<AuthClient> authClient = mock(ObjectProvider.class);
         AuthenticationHeaderFilter filter = new AuthenticationHeaderFilter(authClient, redis);
@@ -136,10 +138,9 @@ class AuthenticationHeaderFilterTest {
         ReactiveStringRedisTemplate redis = mock(ReactiveStringRedisTemplate.class);
         @SuppressWarnings("unchecked")
         ReactiveValueOperations<String, String> values = mock(ReactiveValueOperations.class);
-        when(redis.hasKey("blocked_user:" + userId)).thenReturn(Mono.just(true));
         when(redis.opsForValue()).thenReturn(values);
         when(values.get(anyString())).thenReturn(Mono.just("VIEW_VENUES"));
-        when(values.get("blocked_user:" + userId)).thenReturn(Mono.just("deletion"));
+        stateOf(values, userId, "deletion", null);
         @SuppressWarnings("unchecked")
         ObjectProvider<AuthClient> authClient = mock(ObjectProvider.class);
         AuthenticationHeaderFilter filter = new AuthenticationHeaderFilter(authClient, redis);
@@ -160,10 +161,9 @@ class AuthenticationHeaderFilterTest {
         ReactiveStringRedisTemplate redis = mock(ReactiveStringRedisTemplate.class);
         @SuppressWarnings("unchecked")
         ReactiveValueOperations<String, String> values = mock(ReactiveValueOperations.class);
-        when(redis.hasKey("blocked_user:" + userId)).thenReturn(Mono.just(true));
         when(redis.opsForValue()).thenReturn(values);
         when(values.get(anyString())).thenReturn(Mono.just("VIEW_VENUES"));
-        when(values.get("blocked_user:" + userId)).thenReturn(Mono.just("inactive"));
+        stateOf(values, userId, "inactive", null);
         @SuppressWarnings("unchecked")
         ObjectProvider<AuthClient> authClient = mock(ObjectProvider.class);
         AuthenticationHeaderFilter filter = new AuthenticationHeaderFilter(authClient, redis);
@@ -177,9 +177,71 @@ class AuthenticationHeaderFilterTest {
         assertThat(response.getBodyAsString().block()).contains("ACCOUNT_INACTIVE");
     }
 
+    /** Đăng nhập ở nơi khác: access token còn hạn của phiên cũ bị chặn ngay với mã riêng. */
+    @Test
+    void rejectsTokensOfAReplacedSession() {
+        String userId = "00000000-0000-0000-0000-0000000000f1";
+        ServerWebExchange exchange = authenticated("/venue-service/api/v1/venues", userId, "old-session");
+        AtomicInteger invocations = runWithSession(exchange, userId, "new-session");
+
+        MockServerHttpResponse response = (MockServerHttpResponse) exchange.getResponse();
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBodyAsString().block()).contains("SESSION_REPLACED");
+        assertThat(invocations).hasValue(0);
+    }
+
+    @Test
+    void forwardsTokensOfTheCurrentSession() {
+        String userId = "00000000-0000-0000-0000-0000000000f2";
+        AtomicInteger invocations = runWithSession(
+                authenticated("/venue-service/api/v1/venues", userId, "session-1"), userId, "session-1");
+        assertThat(invocations).hasValue(1);
+    }
+
+    /** Token phát hành trước khi có "sid" vẫn dùng được cho tới khi tài khoản đăng nhập lại. */
+    @Test
+    void forwardsLegacyTokensWhileNoSessionIsRecorded() {
+        String userId = "00000000-0000-0000-0000-0000000000f3";
+        AtomicInteger invocations = runWithSession(
+                authenticated("/venue-service/api/v1/venues", userId, null), userId, null);
+        assertThat(invocations).hasValue(1);
+    }
+
+    private static AtomicInteger runWithSession(ServerWebExchange exchange, String userId, String currentSession) {
+        ReactiveStringRedisTemplate redis = mock(ReactiveStringRedisTemplate.class);
+        @SuppressWarnings("unchecked")
+        ReactiveValueOperations<String, String> values = mock(ReactiveValueOperations.class);
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.get(anyString())).thenReturn(Mono.just("VIEW_VENUES"));
+        stateOf(values, userId, null, currentSession);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<AuthClient> authClient = mock(ObjectProvider.class);
+        AuthenticationHeaderFilter filter = new AuthenticationHeaderFilter(authClient, redis);
+        ReflectionTestUtils.setField(filter, "gatewaySecret", "test-secret");
+        AtomicInteger invocations = new AtomicInteger();
+        filter.filter(exchange, filtered -> {
+            invocations.incrementAndGet();
+            return Mono.empty();
+        }).block();
+        return invocations;
+    }
+
+    private static void stateOf(ReactiveValueOperations<String, String> values, String userId,
+                                String blockedReason, String currentSession) {
+        when(values.multiGet(List.of("blocked_user:" + userId, "user:" + userId + ":session")))
+                .thenReturn(Mono.just(Arrays.asList(blockedReason, currentSession)));
+    }
+
     private static ServerWebExchange authenticated(String path, String userId) {
-        Jwt jwt = Jwt.withTokenValue("token").header("alg", "none").subject(userId).claim("role", "PLAYER").build();
+        return authenticated(path, userId, null);
+    }
+
+    private static ServerWebExchange authenticated(String path, String userId, String sessionId) {
+        Jwt.Builder jwt = Jwt.withTokenValue("token").header("alg", "none").subject(userId).claim("role", "PLAYER");
+        if (sessionId != null) {
+            jwt.claim("sid", sessionId);
+        }
         return MockServerWebExchange.from(MockServerHttpRequest.get(path).build())
-                .mutate().principal(Mono.just(new JwtAuthenticationToken(jwt))).build();
+                .mutate().principal(Mono.just(new JwtAuthenticationToken(jwt.build()))).build();
     }
 }

@@ -38,6 +38,9 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
     private static final String BLOCKED_USER_PREFIX = "blocked_user:";
     private static final String DELETION_PENDING = "deletion";
     private static final String INACTIVE = "inactive";
+    private static final String SESSION_KEY_PREFIX = "user:";
+    private static final String SESSION_KEY_SUFFIX = ":session";
+    private static final String SESSION_CLAIM = "sid";
     private static final List<String> SESSION_PATHS = List.of("/api/v1/auth/refresh", "/api/v1/auth/logout");
 
     @Value("${app.jwt.secret}")
@@ -84,8 +87,22 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
         if (SESSION_PATHS.stream().anyMatch(path::endsWith)) {
             return forward;
         }
-        return redisTemplate.hasKey(BLOCKED_USER_PREFIX + userId)
-                .flatMap(blocked -> Boolean.TRUE.equals(blocked) ? rejectBlocked(exchange, userId) : forward);
+        String tokenSessionId = jwtAuth.getToken().getClaimAsString(SESSION_CLAIM);
+        return redisTemplate.opsForValue()
+                .multiGet(List.of(BLOCKED_USER_PREFIX + userId, SESSION_KEY_PREFIX + userId + SESSION_KEY_SUFFIX))
+                .flatMap(values -> {
+                    String blockedReason = values.get(0);
+                    String currentSessionId = values.get(1);
+                    if (blockedReason != null) {
+                        return reject(exchange, blockedJson(blockedReason));
+                    }
+                    // Chưa có mã phiên trong Redis (phiên cũ trước khi có "sid"): cho qua để không đăng xuất hàng loạt.
+                    if (currentSessionId != null && !currentSessionId.equals(tokenSessionId)) {
+                        return reject(exchange,
+                                "{\"error\":\"SESSION_REPLACED\",\"message\":\"Tài khoản vừa đăng nhập ở nơi khác.\"}");
+                    }
+                    return forward;
+                });
     }
 
     /**
@@ -93,21 +110,20 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
      * auth-service ghi giá trị {@value #DELETION_PENDING} cho tài khoản chờ xóa, {@value #INACTIVE} cho tài khoản bị
      * admin bỏ xác thực; mọi giá trị khác là bị khóa.
      */
-    private Mono<Void> rejectBlocked(ServerWebExchange exchange, String userId) {
-        return redisTemplate.opsForValue().get(BLOCKED_USER_PREFIX + userId)
-                .defaultIfEmpty("")
-                .flatMap(reason -> {
-                    ServerHttpResponse response = exchange.getResponse();
-                    response.setStatusCode(HttpStatus.UNAUTHORIZED);
-                    response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-                    String json = switch (reason) {
-                        case DELETION_PENDING -> "{\"error\":\"ACCOUNT_DELETION_PENDING\",\"message\":\"Tài khoản đang chờ xóa.\"}";
-                        case INACTIVE -> "{\"error\":\"ACCOUNT_INACTIVE\",\"message\":\"Tài khoản cần được xác thực lại.\"}";
-                        default -> "{\"error\":\"ACCOUNT_BLOCKED\",\"message\":\"Tài khoản của bạn đã bị khóa.\"}";
-                    };
-                    byte[] body = json.getBytes(StandardCharsets.UTF_8);
-                    return response.writeWith(Mono.just(response.bufferFactory().wrap(body)));
-                });
+    private static String blockedJson(String reason) {
+        return switch (reason) {
+            case DELETION_PENDING -> "{\"error\":\"ACCOUNT_DELETION_PENDING\",\"message\":\"Tài khoản đang chờ xóa.\"}";
+            case INACTIVE -> "{\"error\":\"ACCOUNT_INACTIVE\",\"message\":\"Tài khoản cần được xác thực lại.\"}";
+            default -> "{\"error\":\"ACCOUNT_BLOCKED\",\"message\":\"Tài khoản của bạn đã bị khóa.\"}";
+        };
+    }
+
+    private Mono<Void> reject(ServerWebExchange exchange, String json) {
+        ServerHttpResponse response = exchange.getResponse();
+        response.setStatusCode(HttpStatus.UNAUTHORIZED);
+        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        byte[] body = json.getBytes(StandardCharsets.UTF_8);
+        return response.writeWith(Mono.just(response.bufferFactory().wrap(body)));
     }
 
     private ServerWebExchange withGatewayHeaders(
