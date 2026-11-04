@@ -229,7 +229,13 @@ class AuthenticationHeaderFilterTest {
     private static void stateOf(ReactiveValueOperations<String, String> values, String userId,
                                 String blockedReason, String currentSession) {
         when(values.multiGet(List.of("blocked_user:" + userId, "user:" + userId + ":session")))
-                .thenReturn(Mono.just(Arrays.asList(blockedReason, currentSession)));
+                .thenReturn(Mono.just(Arrays.asList(asWrittenByAuthService(blockedReason),
+                        asWrittenByAuthService(currentSession))));
+    }
+
+    /** auth-service ghi Redis bằng serializer JSON: chuỗi được lưu kèm dấu nháy. */
+    private static String asWrittenByAuthService(String value) {
+        return value == null ? null : "\"" + value + "\"";
     }
 
     private static ServerWebExchange authenticated(String path, String userId) {

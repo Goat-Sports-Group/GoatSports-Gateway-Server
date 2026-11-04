@@ -91,8 +91,8 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
         return redisTemplate.opsForValue()
                 .multiGet(List.of(BLOCKED_USER_PREFIX + userId, SESSION_KEY_PREFIX + userId + SESSION_KEY_SUFFIX))
                 .flatMap(values -> {
-                    String blockedReason = values.get(0);
-                    String currentSessionId = values.get(1);
+                    String blockedReason = unquote(values.get(0));
+                    String currentSessionId = unquote(values.get(1));
                     if (blockedReason != null) {
                         return reject(exchange, blockedJson(blockedReason));
                     }
@@ -116,6 +116,17 @@ public class AuthenticationHeaderFilter implements GlobalFilter, Ordered {
             case INACTIVE -> "{\"error\":\"ACCOUNT_INACTIVE\",\"message\":\"Tài khoản cần được xác thực lại.\"}";
             default -> "{\"error\":\"ACCOUNT_BLOCKED\",\"message\":\"Tài khoản của bạn đã bị khóa.\"}";
         };
+    }
+
+    /**
+     * auth-service ghi Redis bằng serializer JSON nên chuỗi được lưu kèm dấu nháy ("abc"), còn gateway đọc chuỗi thô.
+     * Bỏ dấu nháy để so khớp được với claim "sid" và các lý do khóa.
+     */
+    private static String unquote(String value) {
+        if (value != null && value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+            return value.substring(1, value.length() - 1);
+        }
+        return value;
     }
 
     private Mono<Void> reject(ServerWebExchange exchange, String json) {
