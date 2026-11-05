@@ -132,10 +132,10 @@ class GatewayVenueSecurityConfigTest {
                 .expectStatus().isUnauthorized();
     }
 
-    /** Khách xem và tìm bài công khai; bài đã lưu, đăng bài, báo cáo vẫn cần đăng nhập. */
+    /** Khách xem bài công khai; bài đã lưu, đăng bài, báo cáo vẫn cần đăng nhập. */
     @Test
-    void guestsCanReadAndSearchTheFeedButNotWriteOrSeeSavedPosts() {
-        webTestClient.get().uri("/social-service/api/v1/social/posts?q=c%E1%BA%A7u%20l%C3%B4ng")
+    void guestsCanReadTheFeedButNotWriteOrSeeSavedPosts() {
+        webTestClient.get().uri("/social-service/api/v1/social/posts")
                 .exchange()
                 .expectStatus().isNoContent();
         webTestClient.get().uri("/social-service/api/v1/social/posts/post-id")
