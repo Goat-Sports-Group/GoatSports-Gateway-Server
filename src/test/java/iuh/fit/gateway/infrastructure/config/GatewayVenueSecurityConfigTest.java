@@ -132,6 +132,41 @@ class GatewayVenueSecurityConfigTest {
                 .expectStatus().isUnauthorized();
     }
 
+    /** Khách xem và tìm bài công khai; bài đã lưu, đăng bài, báo cáo vẫn cần đăng nhập. */
+    @Test
+    void guestsCanReadAndSearchTheFeedButNotWriteOrSeeSavedPosts() {
+        webTestClient.get().uri("/social-service/api/v1/social/posts?q=c%E1%BA%A7u%20l%C3%B4ng")
+                .exchange()
+                .expectStatus().isNoContent();
+        webTestClient.get().uri("/social-service/api/v1/social/posts/post-id")
+                .exchange()
+                .expectStatus().isNoContent();
+        webTestClient.get().uri("/social-service/api/v1/social/posts/post-id/comments")
+                .exchange()
+                .expectStatus().isNoContent();
+        webTestClient.get().uri("/social-service/api/v1/social/posts/tags/trending")
+                .exchange()
+                .expectStatus().isNoContent();
+        webTestClient.get().uri("/auth-service/api/v1/users/user-id")
+                .exchange()
+                .expectStatus().isNoContent();
+        webTestClient.get().uri("/auth-service/api/v1/users/search?query=an")
+                .exchange()
+                .expectStatus().isUnauthorized();
+        webTestClient.get().uri("/auth-service/api/v1/users/me/sport-profiles")
+                .exchange()
+                .expectStatus().isUnauthorized();
+        webTestClient.get().uri("/social-service/api/v1/social/posts/saved")
+                .exchange()
+                .expectStatus().isUnauthorized();
+        webTestClient.post().uri("/social-service/api/v1/social/posts")
+                .exchange()
+                .expectStatus().isUnauthorized();
+        webTestClient.get().uri("/social-service/api/v1/social/reports/decisions/me")
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
     @Test
     void clubMutationsSocialAndMatchmakingRequireLogin() {
         webTestClient.post().uri("/club-service/api/v1/clubs")
@@ -228,6 +263,14 @@ class GatewayVenueSecurityConfigTest {
                 "/ai-service/api/v1/ai/recommendations/venues",
                 "/storage-service/api/v1/files",
                 "/social-service/api/v1/social/friends",
+                "/auth-service/api/v1/users/{userId}",
+                "/auth-service/api/v1/users/search",
+                "/auth-service/api/v1/users/me/sport-profiles",
+                "/social-service/api/v1/social/posts",
+                "/social-service/api/v1/social/posts/{postId}",
+                "/social-service/api/v1/social/posts/{postId}/comments",
+                "/social-service/api/v1/social/posts/tags/trending",
+                "/social-service/api/v1/social/reports/decisions/me",
                 "/social-service/ws",
                 "/auth-service/actuator/prometheus",
                 "/auth-service/actuator/health"
@@ -240,6 +283,7 @@ class GatewayVenueSecurityConfigTest {
                 "/venue-service/api/v1/player/reviews",
                 "/payment-service/api/v1/payments/providers/payos/webhook",
                 "/club-service/api/v1/clubs",
+                "/social-service/api/v1/social/posts",
                 "/ai-service/api/v1/ai/chatbot/query",
                 "/ai-service/api/v1/ai/chatbot/feedback",
                 "/ai-service/api/v1/ai/matchmaking/queue",

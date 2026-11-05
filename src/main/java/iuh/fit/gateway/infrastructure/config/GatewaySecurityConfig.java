@@ -63,6 +63,8 @@ public class GatewaySecurityConfig {
                         .pathMatchers("/auth-service/internal/**").denyAll()
                         .pathMatchers("/auth-service/callback/**").permitAll()
                         .pathMatchers(HttpMethod.POST, "/auth-service/api/v1/support/requests").permitAll()
+                        .pathMatchers(HttpMethod.GET, "/auth-service/api/v1/users/search").authenticated()
+                        .pathMatchers(HttpMethod.GET, "/auth-service/api/v1/users/*").permitAll()
                         .pathMatchers("/auth-service/**").authenticated()
 
                         // Venue service
@@ -121,6 +123,16 @@ public class GatewaySecurityConfig {
                         // Social service
                         .pathMatchers("/social-service/actuator/**").permitAll()
                         .pathMatchers("/social-service/internal/**").denyAll()
+                        .pathMatchers(HttpMethod.GET, "/social-service/api/v1/social/posts/saved").authenticated()
+                        .pathMatchers(
+                                HttpMethod.GET,
+                                "/social-service/api/v1/social/posts",
+                                "/social-service/api/v1/social/posts/*",
+                                "/social-service/api/v1/social/posts/*/comments",
+                                "/social-service/api/v1/social/posts/tags/**",
+                                "/social-service/api/v1/social/posts/authors/*/stats",
+                                "/social-service/api/v1/social/posts/player-calls"
+                        ).permitAll()
                         .pathMatchers("/social-service/**").authenticated()
 
                         // AI service
